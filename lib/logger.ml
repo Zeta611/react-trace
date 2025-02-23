@@ -102,6 +102,10 @@ let treemem treemem = function
             (Tree_mem.sexp_of_t treemem)
             Sexp.pp_hum (Path.sexp_of_t path) Sexp.pp_hum (sexp_of_entry ent))
 
+let io io = function
+  | `Ret -> Logs.debug (fun m -> m "io_h Ret [%s]" io)
+  | `Print s -> Logs.debug (fun m -> m "io_h Print [%s]" s)
+
 let eval expr =
   Logs.debug (fun m -> m "eval %a" Sexp.pp_hum (Expr.sexp_of_t expr))
 

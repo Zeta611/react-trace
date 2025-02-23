@@ -92,6 +92,7 @@ module Expr = struct
         value : hook_free t;
       }
         -> _ desc
+    | Print : hook_free t -> _ desc
 
   type hook_free_t = hook_free t
   type hook_full_t = hook_full t
@@ -122,7 +123,8 @@ module Expr = struct
     | (Uop _ as e)
     | (Alloc as e)
     | (Get _ as e)
-    | (Set _ as e) ->
+    | (Set _ as e)
+    | (Print _ as e) ->
         Some (mk e)
 
   let hook_free_exn e = Option.value_exn (hook_free e)
@@ -150,7 +152,8 @@ module Expr = struct
     | (Bop _ as e)
     | (Alloc as e)
     | (Get _ as e)
-    | (Set _ as e) ->
+    | (Set _ as e)
+    | (Print _ as e) ->
         mk e
 
   let string_of_uop = function Not -> "not" | Uplus -> "+" | Uminus -> "-"
@@ -213,6 +216,7 @@ module Expr = struct
     | Get { obj; idx } -> l [ a "Get"; sexp_of_t obj; sexp_of_t idx ]
     | Set { obj; idx; value } ->
         l [ a "Set"; sexp_of_t obj; sexp_of_t idx; sexp_of_t value ]
+    | Print e -> l [ a "Print"; sexp_of_t e ]
 
   let sexp_of_hook_free_t = sexp_of_t
   let sexp_of_hook_full_t = sexp_of_t

@@ -11,6 +11,13 @@ let run prog =
   in
   steps
 
+let run_output prog =
+  let open Interp in
+  let { output; _ } =
+    run ~fuel:max_fuel ~recorder:(module Default_recorder) prog
+  in
+  output
+
 let parse_prog s =
   let lexbuf = Lexing.from_string s in
   Parser.prog Lexer.read lexbuf
@@ -98,6 +105,7 @@ let rec alpha_conv_expr_blind : type a.
             obj = alpha_conv_expr_blind' bindings obj;
             idx = alpha_conv_expr_blind' bindings idx;
           }
+    | Print e -> Print (alpha_conv_expr_blind' bindings e)
 
 let rec alpha_conv_expr : type a.
     (string -> string) -> a Syntax.Expr.t -> a Syntax.Expr.t -> a Syntax.Expr.t
@@ -923,6 +931,25 @@ view [D ()]
   let steps = run prog in
   Alcotest.(check' int) ~msg:"step three times" ~expected:3 ~actual:steps
 
+let effect_queue_gets_flushed_on_retry () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  let (s, setS) = useState 0 in
+  print "C";
+  if s = 0 then setS (fun s -> s + 1);
+  useEffect (print "useEffect"; setS (fun s -> 42));
+  view [s]
+;;
+view [C ()]
+|}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"calls useEffect two times"
+    ~expected:"C\nC\nuseEffect\nC\nuseEffect\nC\n" ~actual:output
+
 let set_in_effect_guarded_step_n_times_with_obj () =
   let prog =
     parse_prog
@@ -1031,6 +1058,8 @@ let () =
             set_in_removed_child_step_two_times;
           test_case "Same child gets persisted" `Quick state_persists_in_child;
           test_case "New child steps again" `Quick new_child_steps_again;
+          test_case "Effect queue gets flushed on retry" `Quick
+            effect_queue_gets_flushed_on_retry;
           test_case "Guarded set with obj in effect should step five times"
             `Quick set_in_effect_guarded_step_n_times_with_obj;
           test_case "Updating object without set should step one time" `Quick

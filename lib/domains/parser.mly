@@ -26,7 +26,7 @@ and label_stts_expr label = function
 %token <string> STRING
 %token RECORD ASSIGN
 %token VIEW
-%token FUN REC LET STT IN EFF
+%token FUN REC LET STT IN EFF PRINT
 %token IF THEN ELSE
 %token NOT EQ LT GT NE LE GE
 %token AND OR
@@ -38,7 +38,7 @@ and label_stts_expr label = function
 %nonassoc RARROW
 %nonassoc IN
 %right    SEMI
-%nonassoc EFF
+%nonassoc EFF PRINT
 %nonassoc THEN /* below ELSE (if ... then ...) */
 %nonassoc ELSE /* (if ... then ... else ...) */
 %nonassoc ASSIGN
@@ -82,6 +82,9 @@ expr_:
       { $1 }
     | mkexp(EFF; e = expr_
       { Eff (hook_free_exn e) })
+      { $1 }
+    | mkexp(PRINT; e = expr_
+      { Print (hook_free_exn e) })
       { $1 }
     | mkexp(VIEW; LBRACK; vss = separated_nonempty_list(COMMA, expr_); RBRACK
       { View (List.map hook_free_exn vss) })

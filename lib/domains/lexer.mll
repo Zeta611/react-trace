@@ -23,6 +23,7 @@ let keywords =
       ("useState", STT);
       ("in", IN);
       ("useEffect", EFF);
+      ("print", PRINT);
     ];
   tbl
 

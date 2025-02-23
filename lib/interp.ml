@@ -113,6 +113,17 @@ let treemem_h (type a b) (f : a -> b) (x : a) :
   | effect Get_root_pt, k ->
       fun ~treemem -> continue k (Tree_mem.root_pt treemem) ~treemem
 
+let io_h (type a b) (f : a -> b) (x : a) : output:string -> b * string =
+  match f x with
+  | v ->
+      fun ~output ->
+        Logger.io output `Ret;
+        (v, output)
+  | effect Print s, k ->
+      fun ~output ->
+        Logger.io output (`Print s);
+        continue k () ~output:(output ^ s ^ "\n")
+
 let value_exn exn v =
   Option.value_exn v ~error:(Error.of_exn exn ~backtrace:`Get)
 
@@ -273,6 +284,9 @@ let rec eval : type a. a Expr.t -> value =
       let value = eval value in
       let new_obj = Obj.update old_obj ~field:i ~value in
       perform (Update_addr (addr, new_obj));
+      Unit
+  | Print s ->
+      perform (Print (string_of_value_exn (eval s)));
       Unit
 
 let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
@@ -496,6 +510,7 @@ type 'recording run_info = {
   steps : int;
   mem : Memory.t;
   treemem : Tree_mem.t;
+  output : string;
   recording : 'recording;
 }
 
@@ -525,5 +540,6 @@ let run (type recording) ?(fuel : int option)
   in
   let driver () = treemem_h ~treemem:Tree_mem.empty driver () in
   let driver () = mem_h ~mem:Memory.empty driver () in
-  let ((steps, recording), treemem), mem = driver () in
-  { steps; mem; treemem; recording }
+  let driver () = io_h ~output:"" driver () in
+  let (((steps, recording), treemem), mem), output = driver () in
+  { steps; mem; treemem; output; recording }
