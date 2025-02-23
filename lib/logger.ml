@@ -127,8 +127,8 @@ let render path vss =
       m "render [path: %a, vss: %a]" Sexp.pp (Path.sexp_of_t path) Sexp.pp
         ([%sexp_of: view_spec list] vss))
 
-let render1 vs =
-  Logs.debug (fun m -> m "render1 [vs: %a]" Sexp.pp (sexp_of_view_spec vs))
+let render1 t =
+  Logs.debug (fun m -> m "render1 [tree: %a]" Sexp.pp (sexp_of_tree t))
 
 let update path =
   Logs.debug (fun m -> m "update [path: %a]" Sexp.pp (Path.sexp_of_t path))

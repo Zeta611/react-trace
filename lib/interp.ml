@@ -353,24 +353,29 @@ let rec render (path : Path.t) (vss : view_spec list) : unit =
   List.iter vss ~f:(render_child path);
   perform (Checkpoint { msg = "Rendered"; checkpoint = Render_finish path })
 
-and render1 (vs : view_spec) (t : tree) : unit =
-  Logger.render1 vs;
-  match (vs, t) with
-  | Vs_null, Leaf_null -> ()
-  | Vs_int i, Leaf_int i' when i = i' -> ()
-  | Vs_comp { comp = { param; body; _ }; env; arg }, Path path ->
+and render1 (t : tree) : unit =
+  Logger.render1 t;
+  match t with
+  | Leaf_null | Leaf_int _ -> ()
+  | Path path ->
+      let { part_view; _ } = perform (Lookup_ent path) in
+      let param, body, env, arg =
+        match part_view with
+        | Root -> assert false
+        | Node { comp_spec = { comp = { param; body; _ }; env; arg }; _ } ->
+            (param, body, env, arg)
+      in
       let env = Env.extend env ~id:param ~value:arg in
       let vss =
         (eval_mult |> env_h ~env |> ptph_h ~ptph:(path, P_init)) body
         |> vss_of_value_exn
       in
       render path vss
-  | _, _ -> assert false
 
 and render_child (path : Path.t) ?(idx : int option) (vs : view_spec) : unit =
   let t = alloc_tree vs in
   mount_tree path ?idx t;
-  render1 vs t
+  render1 t
 
 let rec update (path : Path.t) (arg : value option) : bool =
   Logger.update path;
