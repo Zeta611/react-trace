@@ -37,7 +37,7 @@ module M : Domains.S = struct
     and view_spec = Vs_null | Vs_int of int | Vs_comp of comp_spec
     [@@deriving sexp_of]
 
-    type phase = P_init | P_update | P_retry | P_effect [@@deriving sexp_of]
+    type phase = P_init | P_succ | P_effect [@@deriving sexp_of]
     type decision = Idle | Retry | Update [@@deriving sexp_of]
 
     type part_view =
@@ -227,7 +227,7 @@ module M : Domains.S = struct
   end
 
   module Phase = struct
-    type t = phase = P_init | P_update | P_retry | P_effect [@@deriving equal]
+    type t = phase = P_init | P_succ | P_effect [@@deriving equal]
 
     let ( = ) = equal
     let ( <> ) p1 p2 = not (p1 = p2)

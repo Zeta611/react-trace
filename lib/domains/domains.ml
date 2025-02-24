@@ -34,7 +34,7 @@ module type T = sig
   and comp_spec = { comp : Prog.comp; env : env; arg : value }
   and view_spec = Vs_null | Vs_int of int | Vs_comp of comp_spec
 
-  type phase = P_init | P_update | P_retry | P_effect
+  type phase = P_init | P_succ | P_effect
   type decision = Idle | Retry | Update
 
   type part_view =

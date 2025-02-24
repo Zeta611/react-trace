@@ -213,7 +213,7 @@ let rec eval : type a. a Expr.t -> value =
           in
           perform (Update_st (path, label, (v, Job_q.empty)));
           perform (In_env env) eval body
-      | P_update | P_retry ->
+      | P_succ ->
           let v_old, q = perform (Lookup_st (path, label)) in
           (* Run the setting thunks in the set queue *)
           let v =
@@ -314,7 +314,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
                ( path,
                  { ent with part_view = Node { node with eff_q = Job_q.empty } }
                )));
-      ptph_h ~ptph:(path, P_retry) (eval_mult ~re_render) expr
+      ptph_h ~ptph:(path, P_succ) (eval_mult ~re_render) expr
   | Idle | Update -> v
 
 let alloc_tree (vs : view_spec) : tree =
@@ -398,7 +398,7 @@ let rec update (path : Path.t) (arg : value option) : bool =
             perform (Set_arg (path, arg));
             let env = Env.extend env ~id:param ~value:arg in
             let vss =
-              (eval_mult |> env_h ~env |> ptph_h ~ptph:(path, P_update)) body
+              (eval_mult |> env_h ~env |> ptph_h ~ptph:(path, P_succ)) body
               |> vss_of_value_exn
             in
 
