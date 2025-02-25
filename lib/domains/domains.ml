@@ -18,12 +18,10 @@ module type T = sig
 
   type set_clos = { label : Label.t; path : path }
   type comp_clos = { comp : Prog.comp; env : env }
+  type const = Unit | Bool of bool | Int of int | String of string
 
   type value =
-    | Unit
-    | Bool of bool
-    | Int of int
-    | String of string
+    | Const of const
     | Addr of addr
     | View_spec of view_spec list
     | Clos of clos
@@ -32,7 +30,7 @@ module type T = sig
     | Comp_spec of comp_spec
 
   and comp_spec = { comp : Prog.comp; env : env; arg : value }
-  and view_spec = Vs_null | Vs_int of int | Vs_comp of comp_spec
+  and view_spec = Vs_const of const | Vs_comp of comp_spec
 
   type phase = P_init | P_succ | P_effect
   type decision = Idle | Retry | Update
@@ -46,13 +44,14 @@ module type T = sig
         eff_q : job_q;
       }
 
-  type tree = Leaf_null | Leaf_int of int | Path of path
+  type tree = Leaf of const | Path of path
   type entry = { part_view : part_view; children : tree Snoc_list.t }
 
   val sexp_of_clos : clos -> Sexp.t
   val sexp_of_set_clos : set_clos -> Sexp.t
   val sexp_of_comp_clos : comp_clos -> Sexp.t
   val sexp_of_value : value -> Sexp.t
+  val sexp_of_const : const -> Sexp.t
   val sexp_of_comp_spec : comp_spec -> Sexp.t
   val sexp_of_view_spec : view_spec -> Sexp.t
   val sexp_of_phase : phase -> Sexp.t
@@ -62,6 +61,7 @@ module type T = sig
   val sexp_of_entry : entry -> Sexp.t
   val sexp_of_addr : addr -> Sexp.t
   val sexp_of_obj : obj -> Sexp.t
+  val equal_const : const -> const -> bool
 end
 
 module type Path = sig

@@ -159,10 +159,10 @@ let rec eval : type a. a Expr.t -> value =
  fun expr ->
   Logger.eval expr;
   match expr.desc with
-  | Const Unit -> Unit
-  | Const (Bool b) -> Bool b
-  | Const (Int i) -> Int i
-  | Const (String s) -> String s
+  | Const Unit -> Const Unit
+  | Const (Bool b) -> Const (Bool b)
+  | Const (Int i) -> Const (Int i)
+  | Const (String s) -> Const (String s)
   | Var id ->
       let env = perform Rd_env in
       Env.lookup_exn env ~id
@@ -195,7 +195,7 @@ let rec eval : type a. a Expr.t -> value =
           let v, q = perform (Lookup_st (path, label)) in
           perform (Update_st (path, label, (v, Job_q.enqueue q clos)));
 
-          Unit
+          Const Unit
       | _ -> raise Type_error)
   | Let { id; bound; body } ->
       let value = eval bound in
@@ -238,37 +238,43 @@ let rec eval : type a. a Expr.t -> value =
       and env = perform Rd_env in
       (match phase with P_effect -> raise Invalid_phase | _ -> ());
       perform (Enq_eff (path, { self = None; param = Id.unit; body = e; env }));
-      Unit
+      Const Unit
   | Seq (e1, e2) ->
       eval e1 |> ignore;
       eval e2
-  | Uop { op; arg } -> (
+  | Uop { op; arg } ->
       let v = eval arg in
-      match (op, v) with
-      | Not, Bool b -> Bool (not b)
-      | Uplus, Int i -> Int i
-      | Uminus, Int i -> Int ~-i
-      | _, _ -> raise Type_error)
-  | Bop { op; left; right } -> (
+      let k =
+        match (op, v) with
+        | Not, Const (Bool b) -> Bool (not b)
+        | Uplus, Const (Int i) -> Int i
+        | Uminus, Const (Int i) -> Int ~-i
+        | _, _ -> raise Type_error
+      in
+      Const k
+  | Bop { op; left; right } ->
       let v1 = eval left in
       let v2 = eval right in
-      match (op, v1, v2) with
-      | Eq, Unit, Unit -> Bool true
-      | Eq, Bool b1, Bool b2 -> Bool Bool.(b1 = b2)
-      | Eq, Int i1, Int i2 -> Bool (i1 = i2)
-      | Lt, Int i1, Int i2 -> Bool (i1 < i2)
-      | Gt, Int i1, Int i2 -> Bool (i1 > i2)
-      | Le, Int i1, Int i2 -> Bool (i1 <= i2)
-      | Ge, Int i1, Int i2 -> Bool (i1 >= i2)
-      | Ne, Unit, Unit -> Bool false
-      | Ne, Bool b1, Bool b2 -> Bool Bool.(b1 <> b2)
-      | Ne, Int i1, Int i2 -> Bool (i1 <> i2)
-      | And, Bool b1, Bool b2 -> Bool (b1 && b2)
-      | Or, Bool b1, Bool b2 -> Bool (b1 || b2)
-      | Plus, Int i1, Int i2 -> Int (i1 + i2)
-      | Minus, Int i1, Int i2 -> Int (i1 - i2)
-      | Times, Int i1, Int i2 -> Int (i1 * i2)
-      | _, _, _ -> raise Type_error)
+      let k =
+        match (op, v1, v2) with
+        | Eq, Const Unit, Const Unit -> Bool true
+        | Eq, Const (Bool b1), Const (Bool b2) -> Bool Bool.(b1 = b2)
+        | Eq, Const (Int i1), Const (Int i2) -> Bool (i1 = i2)
+        | Lt, Const (Int i1), Const (Int i2) -> Bool (i1 < i2)
+        | Gt, Const (Int i1), Const (Int i2) -> Bool (i1 > i2)
+        | Le, Const (Int i1), Const (Int i2) -> Bool (i1 <= i2)
+        | Ge, Const (Int i1), Const (Int i2) -> Bool (i1 >= i2)
+        | Ne, Const Unit, Const Unit -> Bool false
+        | Ne, Const (Bool b1), Const (Bool b2) -> Bool Bool.(b1 <> b2)
+        | Ne, Const (Int i1), Const (Int i2) -> Bool (i1 <> i2)
+        | And, Const (Bool b1), Const (Bool b2) -> Bool (b1 && b2)
+        | Or, Const (Bool b1), Const (Bool b2) -> Bool (b1 || b2)
+        | Plus, Const (Int i1), Const (Int i2) -> Int (i1 + i2)
+        | Minus, Const (Int i1), Const (Int i2) -> Int (i1 - i2)
+        | Times, Const (Int i1), Const (Int i2) -> Int (i1 * i2)
+        | _, _, _ -> raise Type_error
+      in
+      Const k
   | Alloc ->
       let addr = perform (Alloc_addr Obj.empty) in
       Addr addr
@@ -284,10 +290,10 @@ let rec eval : type a. a Expr.t -> value =
       let value = eval value in
       let new_obj = Obj.update old_obj ~field:i ~value in
       perform (Update_addr (addr, new_obj));
-      Unit
+      Const Unit
   | Print s ->
       perform (Print (string_of_value_exn (eval s)));
-      Unit
+      Const Unit
 
 let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
  fun ?(re_render = 1) expr ->
@@ -320,8 +326,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
 let alloc_tree (vs : view_spec) : tree =
   Logger.alloc_tree vs;
   match vs with
-  | Vs_null -> Leaf_null
-  | Vs_int i -> Leaf_int i
+  | Vs_const k -> Leaf k
   | Vs_comp comp_spec ->
       let pt = perform Alloc_pt in
       let part_view =
@@ -356,7 +361,7 @@ let rec render (path : Path.t) (vss : view_spec list) : unit =
 and render1 (t : tree) : unit =
   Logger.render1 t;
   match t with
-  | Leaf_null | Leaf_int _ -> ()
+  | Leaf _ -> ()
   | Path path ->
       let { part_view; _ } = perform (Lookup_ent path) in
       let param, body, env, arg =
@@ -429,7 +434,7 @@ and update_idle (children : tree Snoc_list.t) : bool =
 
 and update1 (t : tree) (arg : value option) : bool =
   Logger.update1 t;
-  match t with Leaf_null | Leaf_int _ -> false | Path path -> update path arg
+  match t with Leaf _ -> false | Path path -> update path arg
 
 and reconcile (path : Path.t) (old_trees : tree option list)
     (vss : view_spec list) : bool =
@@ -442,8 +447,7 @@ and reconcile1 (path : Path.t) (idx : int) (old_tree : tree option)
     (vs : view_spec) : bool =
   Logger.reconcile1 old_tree vs;
   match (old_tree, vs) with
-  | Some Leaf_null, Vs_null -> false
-  | Some (Leaf_int i), Vs_int j when i = j -> false
+  | Some (Leaf k), Vs_const k' when equal_const k k' -> false
   | Some (Path pt as t), (Vs_comp { comp = { name; _ }; arg; _ } as vs) -> (
       let { part_view; _ } = perform (Lookup_ent pt) in
       match part_view with
@@ -485,7 +489,7 @@ let rec commit_effs (path : Path.t) : unit =
 
 and commit_effs1 (t : tree) : unit =
   Logger.commit_effs1 t;
-  match t with Leaf_null | Leaf_int _ -> () | Path path -> commit_effs path
+  match t with Leaf _ -> () | Path path -> commit_effs path
 
 let rec eval_top (prog : Prog.t) : view_spec list =
   Logger.eval_top prog;

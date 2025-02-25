@@ -18,11 +18,11 @@ module M : Domains.S = struct
     }
     [@@deriving sexp_of]
 
+    type const = Unit | Bool of bool | Int of int | String of string
+    [@@deriving sexp_of, equal]
+
     type value =
-      | Unit
-      | Bool of bool
-      | Int of int
-      | String of string
+      | Const of const
       | Addr of addr
       | View_spec of view_spec list
       | Clos of clos
@@ -34,7 +34,7 @@ module M : Domains.S = struct
     and comp_clos = { comp : Prog.comp; env : env }
     and comp_spec = { comp : Prog.comp; env : env; arg : value }
 
-    and view_spec = Vs_null | Vs_int of int | Vs_comp of comp_spec
+    and view_spec = Vs_const of const | Vs_comp of comp_spec
     [@@deriving sexp_of]
 
     type phase = P_init | P_succ | P_effect [@@deriving sexp_of]
@@ -50,8 +50,7 @@ module M : Domains.S = struct
         }
     [@@deriving sexp_of]
 
-    type tree = Leaf_null | Leaf_int of int | Path of path
-    [@@deriving sexp_of]
+    type tree = Leaf of const | Path of path [@@deriving sexp_of]
 
     type entry = { part_view : part_view; children : tree Snoc_list.t }
     [@@deriving sexp_of]
@@ -75,7 +74,10 @@ module M : Domains.S = struct
     type t = value Id.Map.t [@@deriving sexp_of]
 
     let empty = Id.Map.empty
-    let lookup obj ~field = Map.find obj field |> Option.value ~default:T.Unit
+
+    let lookup obj ~field =
+      Map.find obj field |> Option.value ~default:T.(Const Unit)
+
     let update obj ~field ~value = Map.set obj ~key:field ~data:value
   end
 
@@ -200,14 +202,13 @@ module M : Domains.S = struct
     type nonrec addr = addr
     type t = value
 
-    let to_bool = function Bool b -> Some b | _ -> None
-    let to_int = function Int i -> Some i | _ -> None
-    let to_string = function String s -> Some s | _ -> None
+    let to_bool = function Const (Bool b) -> Some b | _ -> None
+    let to_int = function Const (Int i) -> Some i | _ -> None
+    let to_string = function Const (String s) -> Some s | _ -> None
     let to_addr = function Addr l -> Some l | _ -> None
 
     let to_vs = function
-      | Unit -> Some Vs_null
-      | Int i -> Some (Vs_int i)
+      | Const k -> Some (Vs_const k)
       | Comp_spec t -> Some (Vs_comp t)
       | _ -> None
 
@@ -216,9 +217,9 @@ module M : Domains.S = struct
 
     let equal v1 v2 =
       match (v1, v2) with
-      | Unit, Unit -> true
-      | Bool b1, Bool b2 -> Bool.(b1 = b2)
-      | Int i1, Int i2 -> i1 = i2
+      | Const Unit, Const Unit -> true
+      | Const (Bool b1), Const (Bool b2) -> Bool.(b1 = b2)
+      | Const (Int i1), Const (Int i2) -> i1 = i2
       | Addr l1, Addr l2 -> Addr.(l1 = l2)
       | _, _ -> false
 
