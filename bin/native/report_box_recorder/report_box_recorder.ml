@@ -36,9 +36,7 @@ and path (pt : Path.t) : B.t =
     | Root -> bold_text "•" |> align
     | Node { comp_spec = { comp; arg; _ }; dec; st_store; eff_q } ->
         let comp_spec_box =
-          B.(
-            hlist ~bars:false
-              [ bold_text (trunc comp.name); text " "; value arg ])
+          B.(hlist ~bars:false [ bold_text (trunc comp); text " "; value arg ])
           |> align
         in
         let dec_box =

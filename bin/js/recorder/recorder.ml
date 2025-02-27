@@ -34,9 +34,7 @@ let rec tree : Concrete_domains.tree -> tree = function
 and path (pt : Path.t) : tree =
   let { part_view; children } = perform (Lookup_ent pt) in
   let name =
-    match part_view with
-    | Root -> "Root"
-    | Node node -> node.comp_spec.comp.name
+    match part_view with Root -> "Root" | Node node -> node.comp_spec.comp
   in
   {
     path = pt |> Path.sexp_of_t |> Sexp.to_string;

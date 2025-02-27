@@ -8,6 +8,7 @@ module type T = sig
   type obj
   type st_store
   type job_q
+  type comp_def = { param : Id.t; body : Expr.hook_full_t }
 
   type clos = {
     self : Id.t option;
@@ -17,19 +18,18 @@ module type T = sig
   }
 
   type set_clos = { label : Label.t; path : path }
-  type comp_clos = { comp : Prog.comp; env : env }
   type const = Unit | Bool of bool | Int of int | String of string
 
   type value =
     | Const of const
     | Addr of addr
+    | Comp of Id.t
     | View_spec of view_spec list
     | Clos of clos
     | Set_clos of set_clos
-    | Comp_clos of comp_clos
     | Comp_spec of comp_spec
 
-  and comp_spec = { comp : Prog.comp; env : env; arg : value }
+  and comp_spec = { comp : Id.t; arg : value }
   and view_spec = Vs_const of const | Vs_comp of comp_spec
 
   type phase = P_init | P_succ | P_effect
@@ -49,11 +49,11 @@ module type T = sig
 
   val sexp_of_clos : clos -> Sexp.t
   val sexp_of_set_clos : set_clos -> Sexp.t
-  val sexp_of_comp_clos : comp_clos -> Sexp.t
   val sexp_of_value : value -> Sexp.t
   val sexp_of_const : const -> Sexp.t
   val sexp_of_comp_spec : comp_spec -> Sexp.t
   val sexp_of_view_spec : view_spec -> Sexp.t
+  val sexp_of_comp_def : comp_def -> Sexp.t
   val sexp_of_phase : phase -> Sexp.t
   val sexp_of_decision : decision -> Sexp.t
   val sexp_of_part_view : part_view -> Sexp.t
@@ -80,8 +80,9 @@ module type Env = sig
   type t
 
   val empty : t
-  val lookup : t -> id:Id.t -> value option
+  val lookup : t -> id:Id.t -> value
   val extend : t -> id:Id.t -> value:value -> t
+  val of_alist : (Id.t * value) list -> t
   val sexp_of_t : t -> Sexp.t
 end
 
@@ -155,6 +156,18 @@ module type Tree_mem = sig
   val sexp_of_t : t -> Sexp.t
 end
 
+module type Def_tab = sig
+  type t
+  type comp_def
+  type env
+
+  val empty : t
+  val lookup : t -> comp:Id.t -> comp_def
+  val extend : t -> comp:Id.t -> comp_def:comp_def -> t
+  val envify : t -> env
+  val sexp_of_t : t -> Sexp.t
+end
+
 module type Value = sig
   type view_spec
   type clos
@@ -214,6 +227,8 @@ module type S = sig
        and type decision = decision
        and type clos = clos
        and type entry = entry
+
+  module Def_tab : Def_tab with type comp_def = comp_def and type env = env
 
   module Value :
     Value

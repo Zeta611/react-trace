@@ -10,6 +10,9 @@ module M : Domains.S = struct
     type st_store = St_store.t [@@deriving sexp_of]
     type job_q = Job_q.t [@@deriving sexp_of]
 
+    type comp_def = { param : Id.t; body : Expr.hook_full_t }
+    [@@deriving sexp_of]
+
     type clos = {
       self : Id.t option;
       param : Id.t;
@@ -24,15 +27,14 @@ module M : Domains.S = struct
     type value =
       | Const of const
       | Addr of addr
+      | Comp of Id.t
       | View_spec of view_spec list
       | Clos of clos
       | Set_clos of set_clos
-      | Comp_clos of comp_clos
       | Comp_spec of comp_spec
 
     and set_clos = { label : Label.t; path : path }
-    and comp_clos = { comp : Prog.comp; env : env }
-    and comp_spec = { comp : Prog.comp; env : env; arg : value }
+    and comp_spec = { comp : Id.t; arg : value }
 
     and view_spec = Vs_const of const | Vs_comp of comp_spec
     [@@deriving sexp_of]
@@ -63,8 +65,9 @@ module M : Domains.S = struct
     type t = value Id.Map.t [@@deriving sexp_of]
 
     let empty = Id.Map.empty
-    let lookup env ~id = Map.find env id
+    let lookup env ~id = Map.find_exn env id
     let extend env ~id ~value = Map.set env ~key:id ~data:value
+    let of_alist (a : (Id.t * value) list) = Map.of_alist_exn (module Id) a
   end
 
   and Addr : (Domains.Addr with type t = T.addr) = Int
@@ -192,6 +195,23 @@ module M : Domains.S = struct
     let update_ent tree_mem ~path ent =
       Logs.debug (fun m -> m "update_ent: %a" Sexp.pp_hum (Path.sexp_of_t path));
       Map.set tree_mem ~key:path ~data:ent
+  end
+
+  module Def_tab :
+    Domains.Def_tab with type comp_def = T.comp_def and type env = T.env =
+  struct
+    type comp_def = T.comp_def [@@deriving sexp_of]
+    type t = comp_def Id.Map.t [@@deriving sexp_of]
+    type env = T.env
+
+    let empty = Id.Map.empty
+    let lookup def_tab ~comp = Map.find_exn def_tab comp
+
+    let extend def_tab ~comp ~comp_def =
+      Map.set def_tab ~key:comp ~data:comp_def
+
+    let envify def_tab =
+      Map.keys def_tab |> List.map ~f:(fun c -> (c, T.Comp c)) |> Env.of_alist
   end
 
   include T
