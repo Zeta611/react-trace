@@ -504,11 +504,10 @@ let rec top_exp : Prog.t -> Expr.hook_free_t = function
   | Expr e -> e
   | Comp (_, p) -> top_exp p
 
-let rec collect ?(deftab = Def_tab.empty) : Prog.t -> Def_tab.t = function
-  | Expr _ -> deftab
+let rec collect : Prog.t -> Def_tab.t = function
+  | Expr _ -> Def_tab.empty
   | Comp ({ name = comp; param; body }, p) ->
-      let deftab = Def_tab.extend deftab ~comp ~comp_def:{ param; body } in
-      collect ~deftab p
+      collect p |> Def_tab.extend ~comp ~comp_def:{ param; body }
 
 let step_prog (deftab : Def_tab.t) (top_exp : Expr.hook_free_t) : Path.t =
   Logger.step_prog deftab top_exp;
