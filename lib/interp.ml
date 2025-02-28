@@ -458,7 +458,7 @@ and reconcile1 (path : Path.t) (idx : int) (old_tree : tree option)
       let { part_view; _ } = perform (Lookup_ent pt) in
       match part_view with
       | Root -> assert false
-      | Node { comp_spec = { comp = comp'; arg = arg' }; _ } ->
+      | Node { comp_spec = { comp = comp'; _ }; _ } ->
           if Id.(comp = comp') then
             (* TODO: Check me *)
             (*update1 t (if Value.(arg = arg') then None else Some arg)*)
