@@ -45,7 +45,8 @@ let escape_seq = "\\\\" | "\\\""
 let ordinary_char = [^ '\\' '"' '\r' '\n']
 let blank = [' ' '\t']+
 let newline = '\r' | '\n' | "\r\n"
-let id = ['a'-'z' 'A'-'Z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '\'']*
+let id = ['a'-'z' '_'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '\'']*
+let comp = ['A'-'Z'] ['a'-'z' 'A'-'Z' '0'-'9' '_' '\'']*
 
 let digit = ['0'-'9']
 let int = digit+
@@ -60,6 +61,7 @@ rule read =
   | "()"      { UNIT }
   | int as n  { INT (int_of_string n) }
   | id as s   { match Hashtbl.find_opt keywords s with Some s -> s | None -> ID s }
+  | comp as c   { COMP c }
   | str as s  { STRING (String.sub s 1 (String.length s - 2) |> unescape_string) }
   | "{}"      { RECORD }
   | ":="      { ASSIGN }

@@ -62,6 +62,7 @@ module Expr = struct
   and _ desc =
     | Const : const -> _ desc
     | Var : Id.t -> _ desc
+    | Comp : Id.t -> _ desc
     | View : hook_free t list -> _ desc
     | Cond : {
         pred : hook_free t;
@@ -115,6 +116,7 @@ module Expr = struct
         Some (mk (Seq (e1, e2)))
     | (Const _ as e)
     | (Var _ as e)
+    | (Comp _ as e)
     | (View _ as e)
     | (Cond _ as e)
     | (Fn _ as e)
@@ -142,6 +144,7 @@ module Expr = struct
         mk (Seq (e1, e2))
     | (Const _ as e)
     | (Var _ as e)
+    | (Comp _ as e)
     | (View _ as e)
     | (Cond _ as e)
     | (Fn _ as e)
@@ -183,6 +186,7 @@ module Expr = struct
     | Const (Int i) -> Int.sexp_of_t i
     | Const (String s) -> String.sexp_of_t s
     | Var id -> Id.sexp_of_t id
+    | Comp c -> Id.sexp_of_t c
     | View es -> l (a "View" :: List.map ~f:sexp_of_t es)
     | Cond { pred; con; alt } ->
         l [ a "Cond"; sexp_of_t pred; sexp_of_t con; sexp_of_t alt ]

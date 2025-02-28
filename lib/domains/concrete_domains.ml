@@ -209,9 +209,6 @@ module M : Domains.S = struct
 
     let extend def_tab ~comp ~comp_def =
       Map.set def_tab ~key:comp ~data:comp_def
-
-    let envify def_tab =
-      Map.keys def_tab |> List.map ~f:(fun c -> (c, T.Comp c)) |> Env.of_alist
   end
 
   include T

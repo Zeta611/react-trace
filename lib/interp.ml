@@ -123,10 +123,6 @@ let deftab_h (type a b) (f : a -> b) (x : a) : deftab:Def_tab.t -> b =
       fun ~deftab ->
         Logger.deftab deftab (`Lookup_comp comp);
         continue k (Def_tab.lookup deftab ~comp) ~deftab
-  | effect Get_comp_env, k ->
-      fun ~deftab ->
-        Logger.deftab deftab `Get_comp_env;
-        continue k (Def_tab.envify deftab) ~deftab
 
 let io_h (type a b) (f : a -> b) (x : a) : output:string -> b * string =
   match f x with
@@ -175,6 +171,7 @@ let rec eval : type a. a Expr.t -> value =
   | Var id ->
       let env = perform Rd_env in
       Env.lookup env ~id
+  | Comp c -> Comp c
   | View es -> View_spec (List.map es ~f:(fun e -> eval e |> vs_of_value_exn))
   | Cond { pred; con; alt } ->
       let p = eval pred |> bool_of_value_exn in
@@ -380,7 +377,7 @@ and render1 (t : tree) : unit =
             let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
             (param, body, arg)
       in
-      let env = perform Get_comp_env |> Env.extend ~id:param ~value:arg in
+      let env = Env.extend Env.empty ~id:param ~value:arg in
       let vss =
         (eval_mult |> env_h ~env |> ptph_h ~ptph:(path, P_init)) body
         |> vss_of_value_exn
@@ -410,7 +407,7 @@ let rec update (path : Path.t) (arg : value option) : bool =
             perform (Set_dec (path, Idle));
             let arg = Option.value arg ~default:arg' in
             perform (Set_arg (path, arg));
-            let env = perform Get_comp_env |> Env.extend ~id:param ~value:arg in
+            let env = Env.extend Env.empty ~id:param ~value:arg in
             let vss =
               (eval_mult |> env_h ~env |> ptph_h ~ptph:(path, P_succ)) body
               |> vss_of_value_exn
@@ -511,9 +508,7 @@ let rec collect : Prog.t -> Def_tab.t = function
 
 let step_prog (deftab : Def_tab.t) (top_exp : Expr.hook_free_t) : Path.t =
   Logger.step_prog deftab top_exp;
-  let vss =
-    top_exp |> env_h ~env:(Def_tab.envify deftab) eval |> vss_of_value_exn
-  in
+  let vss = top_exp |> eval |> vss_of_value_exn in
   let root = perform Alloc_pt in
   perform (Update_ent (root, { part_view = Root; children = [] }));
   render root vss;

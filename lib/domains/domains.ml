@@ -164,7 +164,6 @@ module type Def_tab = sig
   val empty : t
   val lookup : t -> comp:Id.t -> comp_def
   val extend : t -> comp:Id.t -> comp_def:comp_def -> t
-  val envify : t -> env
   val sexp_of_t : t -> Sexp.t
 end
 

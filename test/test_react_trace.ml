@@ -41,6 +41,7 @@ let rec alpha_conv_expr_blind : type a.
   fun bindings -> function
     | Const c -> Const c
     | Var x -> Var (bindings x)
+    | Comp c -> Comp c
     | View es -> View (List.map es ~f:(alpha_conv_expr_blind' bindings))
     | Cond { pred; con; alt } ->
         Cond
@@ -438,47 +439,47 @@ let js_while () =
          {|
 let a = true in
 let b = fun x -> () in
-(rec Fbrk = fun Xbrk ->
-  let Cbrk = (rec Fcont = fun Xcont ->
-      let Ccont =
-        let Cif =
+(rec fbrk = fun xbrk ->
+  let cbrk = (rec fcont = fun xcont ->
+      let ccont =
+        let cif =
           if a then
-            let Ctrue = {} in
-            Ctrue["tag"] := "NRM";
-            Ctrue
+            let ctrue = {} in
+            ctrue["tag"] := "NRM";
+            ctrue
           else
-            let Cfalse = {} in
-            Cfalse["tag"] := "BRK";
-            Cfalse["label"] := brk;
-            Cfalse
+            let cfalse = {} in
+            cfalse["tag"] := "BRK";
+            cfalse["label"] := brk;
+            cfalse
         in
-        if Cif["tag"] = "NRM" then (
+        if cif["tag"] = "NRM" then (
           b 0;
-          let Cbody = {} in
-          Cbody["tag"] := "NRM";
-          Cbody
+          let cbody = {} in
+          cbody["tag"] := "NRM";
+          cbody
         ) else
-          Cif
+          cif
       in
-      if  Ccont["tag"] = "BRK" &&
-          Ccont["label"] = "con" then
-        let CFnrm = {} in
-        CFnrm["tag"] := "NRM";
-        CFnrm
-      else if Ccont["tag"] = NRM then
-        Fcont ()
+      if  ccont["tag"] = "BRK" &&
+          ccont["label"] = "con" then
+        let cFnrm = {} in
+        cFnrm["tag"] := "NRM";
+        cFnrm
+      else if ccont["tag"] = NRM then
+        fcont ()
       else
-        Ccont)
+        ccont)
     ()
   in
-  if  Cbrk["tag"] = "BRK" &&
-      Cbrk["label"] = "brk" then
-    let CFnrm2 = {} in
-    CFnrm2["tag"] := "NRM";
-    CFnrm2
-  else if Cbrk["tag"] = "NRM" then
-    Fbrk ()
-  else Cbrk)
+  if  cbrk["tag"] = "BRK" &&
+      cbrk["label"] = "brk" then
+    let cFnrm2 = {} in
+    cFnrm2["tag"] := "NRM";
+    cFnrm2
+  else if cbrk["tag"] = "NRM" then
+    fbrk ()
+  else cbrk)
 ()
 |}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
