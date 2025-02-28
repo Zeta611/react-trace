@@ -932,25 +932,6 @@ view [D ()]
   let steps = run prog in
   Alcotest.(check' int) ~msg:"step three times" ~expected:3 ~actual:steps
 
-let effect_queue_gets_flushed_on_retry () =
-  let prog =
-    parse_prog
-      {|
-let C x =
-  let (s, setS) = useState 0 in
-  print "C";
-  if s = 0 then setS (fun s -> s + 1);
-  useEffect (print "useEffect"; setS (fun s -> 42));
-  view [s]
-;;
-view [C ()]
-|}
-  in
-  let output = run_output prog in
-  Alcotest.(check' string)
-    ~msg:"calls useEffect two times"
-    ~expected:"C\nC\nuseEffect\nC\nuseEffect\nC\n" ~actual:output
-
 let set_in_effect_guarded_step_n_times_with_obj () =
   let prog =
     parse_prog
@@ -980,6 +961,45 @@ view [C ()]
   in
   let steps = run prog in
   Alcotest.(check' int) ~msg:"step one time" ~expected:1 ~actual:steps
+
+let effect_queue_gets_flushed_on_retry () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  let (s, setS) = useState 0 in
+  print "C";
+  if s = 0 then setS (fun s -> s + 1);
+  useEffect (print "useEffect"; setS (fun s -> 42));
+  view [s]
+;;
+view [C ()]
+|}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"calls useEffect two times"
+    ~expected:"C\nC\nuseEffect\nC\nuseEffect\nC\n" ~actual:output
+
+let child_view_effect_runs_even_idle_but_parent_rerenders () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  useEffect (print "C");
+  view ["C"]
+;;
+let D _ =
+  let (x, setX) = useState 0 in
+  useEffect (setX (fun _ -> 42));
+  view [C 0]
+;;
+view [D ()]
+|}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"C gets printed two times" ~expected:"C\nC\n" ~actual:output
 
 let () =
   let open Alcotest in
@@ -1059,11 +1079,16 @@ let () =
             set_in_removed_child_step_two_times;
           test_case "Same child gets persisted" `Quick state_persists_in_child;
           test_case "New child steps again" `Quick new_child_steps_again;
-          test_case "Effect queue gets flushed on retry" `Quick
-            effect_queue_gets_flushed_on_retry;
           test_case "Guarded set with obj in effect should step five times"
             `Quick set_in_effect_guarded_step_n_times_with_obj;
           test_case "Updating object without set should step one time" `Quick
             updating_obj_without_set_does_not_rerender;
+        ] );
+      ( "side effects",
+        [
+          test_case "Effect queue gets flushed on retry" `Quick
+            effect_queue_gets_flushed_on_retry;
+          test_case "Child view effect runs even idle but parent rerenders"
+            `Quick child_view_effect_runs_even_idle_but_parent_rerenders;
         ] );
     ]

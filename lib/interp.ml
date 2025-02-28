@@ -460,7 +460,9 @@ and reconcile1 (path : Path.t) (idx : int) (old_tree : tree option)
       | Root -> assert false
       | Node { comp_spec = { comp = comp'; arg = arg' }; _ } ->
           if Id.(comp = comp') then
-            update1 t (if Value.(arg = arg') then None else Some arg)
+            (* TODO: Check me *)
+            (*update1 t (if Value.(arg = arg') then None else Some arg)*)
+            update1 t (Some arg)
           else (
             render_child path ~idx vs;
             true))
