@@ -1050,45 +1050,57 @@ let () =
         ] );
       ( "steps",
         [
-          test_case "No side effect should step one time" `Quick no_side_effect;
-          test_case "Set in body should not terminate" `Quick
+          test_case "No re-render when side effect is absent" `Quick
+            no_side_effect;
+          test_case "Infinite retries when top-level setter is unguarded" `Quick
             set_in_body_nonterminate;
-          test_case "Guarded set in body should step one time" `Quick
+          test_case "No re-render when top-level setter is guarded" `Quick
             set_in_body_guarded;
-          test_case "Set in effect should step one time" `Quick
-            set_in_effect_step_one_time;
-          test_case "Set in effect should step two times" `Quick
-            set_in_effect_step_two_times;
-          test_case "Set in effect should step indefintely" `Quick
-            set_in_effect_step_indefinitely;
-          test_case "Guarded set in effect should step two times" `Quick
-            set_in_effect_guarded_step_two_times;
-          test_case "Guarded set in effect should step five times" `Quick
-            set_in_effect_guarded_step_n_times;
-          test_case "Set in effect with arg should step one time" `Quick
-            set_in_effect_with_arg_step_one_time;
-          test_case "Set in effect with arg should step two times" `Quick
-            set_in_effect_with_arg_step_two_times;
-          test_case "Set passed to child should step two times" `Quick
-            set_passed_step_two_times;
-          test_case "Set passed to child should step indefintely" `Quick
-            set_passed_step_indefinitely;
-          test_case "Set in effect twice should step one time" `Quick
-            set_in_effect_twice_step_one_time;
+          test_case
+            "No re-render when identity setter is called in useEffect (1)"
+            `Quick set_in_effect_step_one_time;
+          test_case "Re-render 1 time when setter is called in useEffect (1)"
+            `Quick set_in_effect_step_two_times;
+          test_case
+            "Inifinite re-renders when diverging setter is called in useEffect \
+             (1)"
+            `Quick set_in_effect_step_indefinitely;
+          test_case "Re-render 2 times when setter is called in useEffect (2)"
+            `Quick set_in_effect_guarded_step_two_times;
+          test_case "Re-render 5 times when setter is called in useEffect (3)"
+            `Quick set_in_effect_guarded_step_n_times;
+          test_case
+            "No re-render when identity setter is called in useEffect (2)"
+            `Quick set_in_effect_with_arg_step_one_time;
+          test_case "Re-render 1 time when setter is called in useEffect (4)"
+            `Quick set_in_effect_with_arg_step_two_times;
+          test_case "Re-render 1 time when setter is called in useEffect (5)"
+            `Quick set_passed_step_two_times;
+          test_case
+            "Inifinite re-renders when diverging setter is called in useEffect \
+             (2)"
+            `Quick set_passed_step_indefinitely;
+          test_case
+            "No re-render when setters compose to an identity are called in \
+             useEffect"
+            `Quick set_in_effect_twice_step_one_time;
+          (* TODO: This should probably be tested in the reconciliation suite *)
           test_case "Set in removed child should step two times" `Quick
             set_in_removed_child_step_two_times;
+          (* TODO: This should probably be tested in the reconciliation suite *)
           test_case "Same child gets persisted" `Quick state_persists_in_child;
+          (* TODO: This should probably be tested in the reconciliation suite *)
           test_case "New child steps again" `Quick new_child_steps_again;
-          test_case "Guarded set with obj in effect should step five times"
+          test_case "Re-render 5 times when setter is called in useEffect (6)"
             `Quick set_in_effect_guarded_step_n_times_with_obj;
-          test_case "Updating object without set should step one time" `Quick
+          test_case "No re-render when no setter is called in useEffect" `Quick
             updating_obj_without_set_does_not_rerender;
         ] );
       ( "side effects",
         [
-          test_case "Effect queue gets flushed on retry" `Quick
+          test_case "Flush effect queue on retry" `Quick
             effect_queue_gets_flushed_on_retry;
-          test_case "Child view effect runs even idle but parent rerenders"
-            `Quick child_view_effect_runs_even_idle_but_parent_rerenders;
+          test_case "Idle child's effects are run when parent re-renders" `Quick
+            child_view_effect_runs_even_idle_but_parent_rerenders;
         ] );
     ]
