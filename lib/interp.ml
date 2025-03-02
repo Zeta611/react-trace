@@ -433,24 +433,24 @@ and reconcile1 (old_tree : tree option) (vs : view_spec) : tree * bool =
       else (render vs, true)
   | _, vs -> (render vs, true)
 
-let rec commit_effs (path : Path.t) : unit =
-  Logger.commit_effs path;
-  let { children; _ } = perform (Lookup_ent path) in
-  Snoc_list.iter children ~f:commit_effs1;
-
-  (* Refetch the entry, as committing effects of children may change it *)
-  let { eff_q; _ } = perform (Lookup_ent path) in
-  (Job_q.iter eff_q ~f:(fun { body; env; _ } ->
-       (eval |> env_h ~env |> ptph_h ~ptph:(path, P_effect)) body |> ignore);
-   (* Refetch the entry, as committing effects may change it *)
-   let ent = perform (Lookup_ent path) in
-   perform (Update_ent (path, { ent with eff_q = Job_q.empty })));
-  perform
-    (Checkpoint { msg = "After effects"; checkpoint = Effects_finish path })
-
-and commit_effs1 (t : tree) : unit =
+let rec commit_effs (t : tree) : unit =
   Logger.commit_effs1 t;
-  match t with Leaf _ -> () | Path path -> commit_effs path
+  match t with
+  | Leaf _ -> ()
+  | Path path ->
+      Logger.commit_effs path;
+      let { children; _ } = perform (Lookup_ent path) in
+      Snoc_list.iter children ~f:commit_effs;
+
+      (* Refetch the entry, as committing effects of children may change it *)
+      let { eff_q; _ } = perform (Lookup_ent path) in
+      (Job_q.iter eff_q ~f:(fun { body; env; _ } ->
+           (eval |> env_h ~env |> ptph_h ~ptph:(path, P_effect)) body |> ignore);
+       (* Refetch the entry, as committing effects may change it *)
+       let ent = perform (Lookup_ent path) in
+       perform (Update_ent (path, { ent with eff_q = Job_q.empty })));
+      perform
+        (Checkpoint { msg = "After effects"; checkpoint = Effects_finish path })
 
 let rec top_exp : Prog.t -> Expr.hook_free_t = function
   | Expr e -> e
@@ -465,13 +465,13 @@ let step_prog (deftab : Def_tab.t) (top_exp : Expr.hook_free_t) : tree =
   Logger.step_prog deftab top_exp;
   let vs = top_exp |> eval |> vs_of_value_exn in
   let root = render vs in
-  commit_effs1 root;
+  commit_effs root;
   root
 
 let step_path (path : tree) : bool =
   (* TODO: Logger.step_path path; *)
   let has_updates = update1 path None in
-  if has_updates then commit_effs1 path;
+  if has_updates then commit_effs path;
   has_updates
 
 type 'recording run_info = {
