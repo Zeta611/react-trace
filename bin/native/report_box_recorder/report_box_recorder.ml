@@ -27,7 +27,12 @@ let leaf : const -> B.t = function
   | Int i -> B.int i
   | String s -> B.text s
 
-let rec tree : tree -> B.t = function Leaf k -> leaf k | Path p -> path p
+let rec tree : tree -> B.t = function
+  | Leaf k -> leaf k
+  | List l -> list l
+  | Path p -> path p
+
+and list (ts : tree list) : B.t = B.hlist_map (fun t -> tree t |> align) ts
 
 and path (pt : Path.t) : B.t =
   let { comp_spec = { comp; arg; _ }; dec; st_store; eff_q; children } =
@@ -59,9 +64,7 @@ and path (pt : Path.t) : B.t =
     B.(hlist [ text "eff"; vlist eff_q ])
   in
   let part_view_box = B.vlist [ comp_spec_box; dec_box; stt_box; eff_box ] in
-  let children =
-    Snoc_list.to_list children |> B.hlist_map (fun t -> tree t |> align)
-  in
+  let children = tree children in
   B.(vlist [ part_view_box; children ] |> frame)
 
 let emp_recording = []

@@ -29,15 +29,18 @@ let leaf : const -> tree = function
 
 let rec tree : Concrete_domains.tree -> tree = function
   | Leaf k -> leaf k
+  | List l -> list l
   | Path p -> path p
 
+and list (ts : Concrete_domains.tree list) : tree =
+  { path = ""; name = "..."; children = List.map ts ~f:tree }
+
 and path (pt : Path.t) : tree =
-  let { part_view; children } = perform (Lookup_ent pt) in
-  let name = match part_view with Node node -> node.comp_spec.comp in
+  let { comp_spec = { comp; _ }; children; _ } = perform (Lookup_ent pt) in
   {
     path = pt |> Path.sexp_of_t |> Sexp.to_string;
-    name;
-    children = children |> Snoc_list.to_list |> List.map ~f:tree;
+    name = comp;
+    children = [ tree children ];
   }
 
 let event_h (type a b) (f : a -> b) (x : a) :
