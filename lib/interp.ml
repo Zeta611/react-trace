@@ -358,11 +358,8 @@ and render (vs : view_spec) : tree =
       render_children path vss;
       Path path
 
-let rec update (t : tree) (arg : value) : bool =
-  Logger.update1 t;
-  match t with
-  | Leaf _ -> false
-  | Path path ->
+let rec update (path : Path.t) (arg : value) : bool =
+  (* Logger.update1 t; *)
       Logger.update path;
       perform
         (Checkpoint { msg = "Render (update)"; checkpoint = Render_check path });
@@ -417,9 +414,9 @@ and reconcile1 (old_tree : tree option) (vs : view_spec) : tree * bool =
   Logger.reconcile1 old_tree vs;
   match (old_tree, vs) with
   | Some (Leaf k), Vs_const k' when equal_const k k' -> (Leaf k, false)
-  | Some (Path pt as t), (Vs_comp { comp; arg } as vs) ->
-      let { comp_spec = { comp = comp'; _ }; _ } = perform (Lookup_ent pt) in
-      if Id.(comp = comp') then (Path pt, update t arg) else (render vs, true)
+  | Some (Path path), (Vs_comp { comp; arg } as vs) ->
+      let { comp_spec = { comp = comp'; _ }; _ } = perform (Lookup_ent path) in
+      if Id.(comp = comp') then (Path path, update path arg) else (render vs, true)
   | _, vs -> (render vs, true)
 
 let rec visit (t : tree) : bool =
@@ -435,7 +432,7 @@ let rec visit (t : tree) : bool =
         | Retry -> assert false
         | Idle ->
             Snoc_list.fold children ~init:false ~f:(fun acc t -> acc || visit t)
-        | Update -> update t arg
+        | Update -> update path arg
       in
       if updated then
         perform
