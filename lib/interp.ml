@@ -375,7 +375,9 @@ let rec update (path : Path.t) (arg : value option) : bool =
         let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
         match (dec, arg) with
         | Retry, _ -> assert false
-        | Idle, None -> update_idle children
+        | Idle, None ->
+            Snoc_list.fold children ~init:false ~f:(fun acc t ->
+                acc || update1 t None)
         (* NOTE: Invariant: if arg is Some _, then it is different from arg' *)
         | Idle, Some _ | Update, _ ->
             perform (Set_dec (path, Idle));
@@ -412,9 +414,6 @@ let rec update (path : Path.t) (arg : value option) : bool =
     perform
       (Checkpoint { msg = "Rendered (update)"; checkpoint = Render_finish path });
   updated
-
-and update_idle (children : tree Snoc_list.t) : bool =
-  Snoc_list.fold children ~init:false ~f:(fun acc t -> acc || update1 t None)
 
 and update1 (t : tree) (arg : value option) : bool =
   Logger.update1 t;
