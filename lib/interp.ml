@@ -319,7 +319,6 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
            { msg = "Will retry"; checkpoint = Retry_start (re_render, path) });
       let ({ part_view; _ } as ent) = perform (Lookup_ent path) in
       (match part_view with
-      | Root -> assert false
       | Node node ->
           perform
             (Update_ent
@@ -372,7 +371,6 @@ let rec update (path : Path.t) (arg : value option) : bool =
   let { part_view; children } = perform (Lookup_ent path) in
   let updated =
     match part_view with
-    | Root -> update_idle children
     | Node { comp_spec = { comp; arg = arg' }; dec; _ } -> (
         let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
         match (dec, arg) with
@@ -424,7 +422,7 @@ and update1 (t : tree) (arg : value option) : bool =
 
 and reconcile (old_trees : tree option list) (vss : view_spec list) :
     tree list * bool =
-  (* Logger.reconcile path old_trees vss; *)
+  (* TODO: Logger.reconcile path old_trees vss; *)
   let new_trees, updated =
     List.map2_exn old_trees vss ~f:reconcile1 |> List.unzip
   in
@@ -437,7 +435,6 @@ and reconcile1 (old_tree : tree option) (vs : view_spec) : tree * bool =
   | Some (Path pt as t), (Vs_comp { comp; arg } as vs) -> (
       let { part_view; _ } = perform (Lookup_ent pt) in
       match part_view with
-      | Root -> assert false
       | Node { comp_spec = { comp = comp'; _ }; _ } ->
           if Id.(comp = comp') then
             (* TODO: Check me *)
@@ -454,14 +451,12 @@ let rec commit_effs (path : Path.t) : unit =
   (* Refetch the entry, as committing effects of children may change it *)
   let { part_view; _ } = perform (Lookup_ent path) in
   (match part_view with
-  | Root -> ()
   | Node { eff_q; _ } -> (
       Job_q.iter eff_q ~f:(fun { body; env; _ } ->
           (eval |> env_h ~env |> ptph_h ~ptph:(path, P_effect)) body |> ignore);
       (* Refetch the entry, as committing effects may change it *)
       let ({ part_view; _ } as ent) = perform (Lookup_ent path) in
       match part_view with
-      | Root -> assert false
       | Node node ->
           perform
             (Update_ent
@@ -484,19 +479,17 @@ let rec collect : Prog.t -> Def_tab.t = function
   | Comp ({ name = comp; param; body }, p) ->
       collect p |> Def_tab.extend ~comp ~comp_def:{ param; body }
 
-let step_prog (deftab : Def_tab.t) (top_exp : Expr.hook_free_t) : Path.t =
+let step_prog (deftab : Def_tab.t) (top_exp : Expr.hook_free_t) : tree =
   Logger.step_prog deftab top_exp;
-  let vss = top_exp |> eval |> vss_of_value_exn in
-  let root = perform Alloc_pt in
-  perform (Update_ent (root, { part_view = Root; children = [] }));
-  render_children root vss;
-  commit_effs root;
+  let vs = top_exp |> eval |> vs_of_value_exn in
+  let root = render vs in
+  commit_effs1 root;
   root
 
-let step_path (path : Path.t) : bool =
-  Logger.step_path path;
-  let has_updates = update path None in
-  if has_updates then commit_effs path;
+let step_path (path : tree) : bool =
+  (* TODO: Logger.step_path path; *)
+  let has_updates = update1 path None in
+  if has_updates then commit_effs1 path;
   has_updates
 
 type 'recording run_info = {

@@ -36,7 +36,6 @@ module type T = sig
   type decision = Idle | Retry | Update
 
   type part_view =
-    | Root
     | Node of {
         comp_spec : comp_spec;
         dec : decision;

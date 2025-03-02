@@ -668,7 +668,7 @@ let C x =
   let (s, setS) = useState 42 in
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let steps = run prog in
@@ -683,7 +683,7 @@ let C x =
   setS (fun s -> 43);
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let run () =
@@ -701,7 +701,7 @@ let C x =
   if s = 42 then setS (fun s -> 43);
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let steps = run prog in
@@ -716,7 +716,7 @@ let C x =
   useEffect (setS (fun s -> 42));
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let steps = run prog in
@@ -731,7 +731,7 @@ let C x =
   useEffect (setS (fun s -> 43));
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let steps = run prog in
@@ -746,7 +746,7 @@ let C x =
   useEffect (setS (fun s -> s + 1));
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let steps = run prog in
@@ -761,7 +761,7 @@ let C x =
   useEffect (if s = 42 then setS (fun s -> 43));
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let steps = run prog in
@@ -776,7 +776,7 @@ let C x =
   useEffect (if s <= 45 then setS (fun s -> s + 1));
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let steps = run prog in
@@ -791,7 +791,7 @@ let C x =
   useEffect (if s <> x then setS (fun s -> x));
   view [()]
 ;;
-view [C 42]
+C 42
 |}
   in
   let steps = run prog in
@@ -806,7 +806,7 @@ let C x =
   useEffect (if s <> x then setS (fun s -> x));
   view [()]
 ;;
-view [C 0]
+C 0
 |}
   in
   let steps = run prog in
@@ -824,7 +824,7 @@ let D x =
   let (s, setS) = useState 42 in
   view [C setS]
 ;;
-view [D ()]
+D ()
 |}
   in
   let steps = run prog in
@@ -842,7 +842,7 @@ let D x =
   let (s, setS) = useState 42 in
   view [C setS]
 ;;
-view [D ()]
+D ()
 |}
   in
   let steps = run prog in
@@ -857,7 +857,7 @@ let C x =
   useEffect (setS (fun s -> 43); setS (fun s -> 42));
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let steps = run prog in
@@ -880,7 +880,7 @@ let D x =
   else
     view [()]
 ;;
-view [D ()]
+D ()
 |}
   in
   let steps = run prog in
@@ -903,7 +903,7 @@ let D x =
   else
     view [C ()]
 ;;
-view [D ()]
+D ()
 |}
   in
   let steps = run prog in
@@ -926,7 +926,7 @@ let D x =
   else
     view [C (), C ()]
 ;;
-view [D ()]
+D ()
 |}
   in
   let steps = run prog in
@@ -941,7 +941,7 @@ let C x =
   useEffect (if s["x"] <= 45 then setS (fun s -> (let r = {} in r["x"] := s["x"] + 1; r)));
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let steps = run prog in
@@ -956,7 +956,7 @@ let C x =
   useEffect (s["x"] := 43);
   view [()]
 ;;
-view [C ()]
+C ()
 |}
   in
   let steps = run prog in
@@ -973,7 +973,7 @@ let C x =
   useEffect (print "useEffect"; setS (fun s -> 42));
   view [s]
 ;;
-view [C ()]
+C ()
 |}
   in
   let output = run_output prog in
@@ -994,7 +994,7 @@ let D _ =
   useEffect (setX (fun _ -> 42));
   view [C 0]
 ;;
-view [D ()]
+D ()
 |}
   in
   let output = run_output prog in
