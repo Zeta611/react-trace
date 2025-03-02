@@ -500,8 +500,7 @@ let js_jsx () =
   Alcotest.(check' (of_pp Sexp.pp_hum))
     ~msg:"convert jsx" ~actual:(Prog.sexp_of_t prog)
     ~expected:
-      (parse_prog {|[()]; [Comp ()]; [(Mod["Comp"]) ()]|}
-      |> Prog.sexp_of_t)
+      (parse_prog {|[()]; [Comp ()]; [(Mod["Comp"]) ()]|} |> Prog.sexp_of_t)
 
 let js_op () =
   let open Syntax in
@@ -662,8 +661,7 @@ else (b; let obj2 = {} in obj2["tag"] := "NRM"; obj2)
 
 let no_side_effect () =
   let prog =
-    parse_prog
-      {|
+    parse_prog {|
 let C x =
   let (s, setS) = useState 42 in
   [()]

@@ -24,24 +24,28 @@ module type T = sig
     | Const of const
     | Addr of addr
     | Comp of Id.t
-    | View_spec of view_spec list
+    | View_spec of view_spec
     | Clos of clos
     | Set_clos of set_clos
     | Comp_spec of comp_spec
 
   and comp_spec = { comp : Id.t; arg : value }
-  and view_spec = Vs_const of const | Vs_comp of comp_spec
+
+  and view_spec =
+    | Vs_const of const
+    | Vs_comp of comp_spec
+    | Vs_list of view_spec list
 
   type phase = P_init | P_succ | P_effect
   type decision = Idle | Retry | Update
-  type tree = Leaf of const | Path of path
+  type tree = Leaf of const | List of tree list | Path of path
 
   type entry = {
     comp_spec : comp_spec;
     dec : decision;
     st_store : st_store;
     eff_q : job_q;
-    children : tree Snoc_list.t;
+    children : tree;
   }
 
   val sexp_of_clos : clos -> Sexp.t
@@ -174,7 +178,6 @@ module type Value = sig
   val to_string : t -> string option
   val to_addr : t -> addr option
   val to_vs : t -> view_spec option
-  val to_vss : t -> view_spec list option
   val to_clos : t -> clos option
   val equal : t -> t -> bool
   val ( = ) : t -> t -> bool

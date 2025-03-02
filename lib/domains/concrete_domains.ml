@@ -28,7 +28,7 @@ module M : Domains.S = struct
       | Const of const
       | Addr of addr
       | Comp of Id.t
-      | View_spec of view_spec list
+      | View_spec of view_spec
       | Clos of clos
       | Set_clos of set_clos
       | Comp_spec of comp_spec
@@ -36,19 +36,24 @@ module M : Domains.S = struct
     and set_clos = { label : Label.t; path : path }
     and comp_spec = { comp : Id.t; arg : value }
 
-    and view_spec = Vs_const of const | Vs_comp of comp_spec
+    and view_spec =
+      | Vs_const of const
+      | Vs_comp of comp_spec
+      | Vs_list of view_spec list
     [@@deriving sexp_of]
 
     type phase = P_init | P_succ | P_effect [@@deriving sexp_of]
     type decision = Idle | Retry | Update [@@deriving sexp_of]
-    type tree = Leaf of const | Path of path [@@deriving sexp_of]
+
+    type tree = Leaf of const | List of tree list | Path of path
+    [@@deriving sexp_of]
 
     type entry = {
       comp_spec : comp_spec;
       dec : decision;
       st_store : st_store;
       eff_q : job_q;
-      children : tree Snoc_list.t;
+      children : tree;
     }
     [@@deriving sexp_of]
   end
@@ -201,9 +206,9 @@ module M : Domains.S = struct
     let to_vs = function
       | Const k -> Some (Vs_const k)
       | Comp_spec t -> Some (Vs_comp t)
+      | View_spec v -> Some v
       | _ -> None
 
-    let to_vss = function View_spec vss -> Some vss | _ -> None
     let to_clos = function Clos c -> Some c | _ -> None
 
     let equal v1 v2 =
