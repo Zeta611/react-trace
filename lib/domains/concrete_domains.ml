@@ -41,19 +41,15 @@ module M : Domains.S = struct
 
     type phase = P_init | P_succ | P_effect [@@deriving sexp_of]
     type decision = Idle | Retry | Update [@@deriving sexp_of]
-
-    type part_view =
-      | Node of {
-          comp_spec : comp_spec;
-          dec : decision;
-          st_store : st_store;
-          eff_q : job_q;
-        }
-    [@@deriving sexp_of]
-
     type tree = Leaf of const | Path of path [@@deriving sexp_of]
 
-    type entry = { part_view : part_view; children : tree Snoc_list.t }
+    type entry = {
+      comp_spec : comp_spec;
+      dec : decision;
+      st_store : st_store;
+      eff_q : job_q;
+      children : tree Snoc_list.t;
+    }
     [@@deriving sexp_of]
   end
 
@@ -137,47 +133,31 @@ module M : Domains.S = struct
 
     let lookup_st (tree_mem : t) ~(path : path) ~(label : Label.t) :
         value * job_q =
-      let { part_view; _ } = Map.find_exn tree_mem path in
-      match part_view with
-      | Node { st_store; _ } -> St_store.lookup st_store ~label
+      let { st_store; _ } = Map.find_exn tree_mem path in
+      St_store.lookup st_store ~label
 
     let update_st tree_mem ~path ~label (v, q) =
-      let ({ part_view; _ } as entry) = Map.find_exn tree_mem path in
-      match part_view with
-      | Node ({ st_store; _ } as n) ->
-          let st_store = St_store.update st_store ~label ~value:(v, q) in
-          Map.set tree_mem ~key:path
-            ~data:{ entry with part_view = Node { n with st_store } }
+      let ({ st_store; _ } as entry) = Map.find_exn tree_mem path in
+      let st_store = St_store.update st_store ~label ~value:(v, q) in
+      Map.set tree_mem ~key:path ~data:{ entry with st_store }
 
     let get_dec tree_mem ~path =
-      let { part_view; _ } = Map.find_exn tree_mem path in
-      match part_view with Node { dec; _ } -> dec
+      let { dec; _ } = Map.find_exn tree_mem path in
+      dec
 
     let set_dec tree_mem ~path dec =
-      let ({ part_view; _ } as entry) = Map.find_exn tree_mem path in
-      match part_view with
-      | Node n ->
-          Map.set tree_mem ~key:path
-            ~data:{ entry with part_view = Node { n with dec } }
+      let entry = Map.find_exn tree_mem path in
+      Map.set tree_mem ~key:path ~data:{ entry with dec }
 
     let set_arg tree_mem ~path arg =
-      let ({ part_view; _ } as entry) = Map.find_exn tree_mem path in
-      match part_view with
-      | Node n ->
-          Map.set tree_mem ~key:path
-            ~data:
-              {
-                entry with
-                part_view = Node { n with comp_spec = { n.comp_spec with arg } };
-              }
+      let ({ comp_spec; _ } as entry) = Map.find_exn tree_mem path in
+      Map.set tree_mem ~key:path
+        ~data:{ entry with comp_spec = { comp_spec with arg } }
 
     let enq_eff tree_mem ~path clos =
-      let ({ part_view; _ } as entry) = Map.find_exn tree_mem path in
-      match part_view with
-      | Node ({ eff_q; _ } as n) ->
-          let eff_q = Job_q.enqueue eff_q clos in
-          Map.set tree_mem ~key:path
-            ~data:{ entry with part_view = Node { n with eff_q } }
+      let ({ eff_q; _ } as entry) = Map.find_exn tree_mem path in
+      let eff_q = Job_q.enqueue eff_q clos in
+      Map.set tree_mem ~key:path ~data:{ entry with eff_q }
 
     let root_pt (tree_mem : t) =
       ignore tree_mem;

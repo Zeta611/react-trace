@@ -317,14 +317,8 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
       perform
         (Checkpoint
            { msg = "Will retry"; checkpoint = Retry_start (re_render, path) });
-      let ({ part_view; _ } as ent) = perform (Lookup_ent path) in
-      (match part_view with
-      | Node node ->
-          perform
-            (Update_ent
-               ( path,
-                 { ent with part_view = Node { node with eff_q = Job_q.empty } }
-               )));
+      let ent = perform (Lookup_ent path) in
+      perform (Update_ent (path, { ent with eff_q = Job_q.empty }));
       ptph_h ~ptph:(path, P_succ) (eval_mult ~re_render) expr
   | Idle | Update -> v
 
@@ -333,8 +327,8 @@ let rec render_children (path : Path.t) (vss : view_spec list) : unit =
   (* TODO: perform (Checkpoint { msg = "Render"; checkpoint = Render_check path
      }); *)
   let ts = List.map vss ~f:render in
-  let { part_view; _ } = perform (Lookup_ent path) in
-  perform (Update_ent (path, { part_view; children = Snoc_list.of_list ts }))
+  let entry = perform (Lookup_ent path) in
+  perform (Update_ent (path, { entry with children = Snoc_list.of_list ts }))
 (* TODO: perform (Checkpoint { msg = "Rendered"; checkpoint = Render_finish path
    }) *)
 
@@ -344,16 +338,16 @@ and render (vs : view_spec) : tree =
   | Vs_comp comp_spec ->
       (* m ⊢ $path fresh *)
       let path = perform Alloc_pt in
-      let part_view =
-        Node
-          {
-            comp_spec;
-            dec = Idle;
-            st_store = St_store.empty;
-            eff_q = Job_q.empty;
-          }
+      let view =
+        {
+          comp_spec;
+          dec = Idle;
+          st_store = St_store.empty;
+          eff_q = Job_q.empty;
+          children = [];
+        }
       in
-      perform (Update_ent (path, { part_view; children = [] }));
+      perform (Update_ent (path, view));
       let { comp; arg } = comp_spec in
       let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
       let env = Env.extend Env.empty ~id:param ~value:arg in
@@ -368,47 +362,46 @@ let rec update (path : Path.t) (arg : value option) : bool =
   Logger.update path;
   perform
     (Checkpoint { msg = "Render (update)"; checkpoint = Render_check path });
-  let { part_view; children } = perform (Lookup_ent path) in
+  let { comp_spec = { comp; arg = arg' }; dec; children; _ } =
+    perform (Lookup_ent path)
+  in
+  let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
   let updated =
-    match part_view with
-    | Node { comp_spec = { comp; arg = arg' }; dec; _ } -> (
-        let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
-        match (dec, arg) with
-        | Retry, _ -> assert false
-        | Idle, None ->
-            Snoc_list.fold children ~init:false ~f:(fun acc t ->
-                acc || update1 t None)
-        (* NOTE: Invariant: if arg is Some _, then it is different from arg' *)
-        | Idle, Some _ | Update, _ ->
-            perform (Set_dec (path, Idle));
-            let arg = Option.value arg ~default:arg' in
-            perform (Set_arg (path, arg));
-            let env = Env.extend Env.empty ~id:param ~value:arg in
-            let vss =
-              (eval_mult |> env_h ~env |> ptph_h ~ptph:(path, P_succ)) body
-              |> vss_of_value_exn
-            in
+    match (dec, arg) with
+    | Retry, _ -> assert false
+    | Idle, None ->
+        Snoc_list.fold children ~init:false ~f:(fun acc t ->
+            acc || update1 t None)
+    (* NOTE: Invariant: if arg is Some _, then it is different from arg' *)
+    | Idle, Some _ | Update, _ ->
+        perform (Set_dec (path, Idle));
+        let arg = Option.value arg ~default:arg' in
+        perform (Set_arg (path, arg));
+        let env = Env.extend Env.empty ~id:param ~value:arg in
+        let vss =
+          (eval_mult |> env_h ~env |> ptph_h ~ptph:(path, P_succ)) body
+          |> vss_of_value_exn
+        in
 
-            let old_trees =
-              children |> Snoc_list.to_list
-              |> Util.pad_or_truncate ~len:(List.length vss)
-            in
-            (* TODO: We assume that updates from a younger sibling to an older
+        let old_trees =
+          children |> Snoc_list.to_list
+          |> Util.pad_or_truncate ~len:(List.length vss)
+        in
+        (* TODO: We assume that updates from a younger sibling to an older
                sibling are not dropped, while those from an older sibling to a
                younger sibling are. That's why we are resetting the children
                list and then snoc each child again in the reconcile function. We
                should verify this behavior. *)
-            (* NOTE: We don't do this any more, since we are modelling as an
+        (* NOTE: We don't do this any more, since we are modelling as an
                'in-place' update now *)
-            (*let ent = perform (Lookup_ent path) in*)
-            (*perform (Update_ent (path, { ent with children = [] }));*)
-            let new_trees, updated = reconcile old_trees vss in
-            let dec = perform (Get_dec path) in
-            let ent = perform (Lookup_ent path) in
-            perform
-              (Update_ent
-                 (path, { ent with children = Snoc_list.of_list new_trees }));
-            updated || Decision.(dec <> Idle))
+        (*let ent = perform (Lookup_ent path) in*)
+        (*perform (Update_ent (path, { ent with children = [] }));*)
+        let new_trees, updated = reconcile old_trees vss in
+        let dec = perform (Get_dec path) in
+        let ent = perform (Lookup_ent path) in
+        perform
+          (Update_ent (path, { ent with children = Snoc_list.of_list new_trees }));
+        updated || Decision.(dec <> Idle)
   in
   if updated then
     perform
@@ -431,15 +424,13 @@ and reconcile1 (old_tree : tree option) (vs : view_spec) : tree * bool =
   Logger.reconcile1 old_tree vs;
   match (old_tree, vs) with
   | Some (Leaf k), Vs_const k' when equal_const k k' -> (Leaf k, false)
-  | Some (Path pt as t), (Vs_comp { comp; arg } as vs) -> (
-      let { part_view; _ } = perform (Lookup_ent pt) in
-      match part_view with
-      | Node { comp_spec = { comp = comp'; _ }; _ } ->
-          if Id.(comp = comp') then
-            (* TODO: Check me *)
-            (*update1 t (if Value.(arg = arg') then None else Some arg)*)
-            (Path pt, update1 t (Some arg))
-          else (render vs, true))
+  | Some (Path pt as t), (Vs_comp { comp; arg } as vs) ->
+      let { comp_spec = { comp = comp'; _ }; _ } = perform (Lookup_ent pt) in
+      if Id.(comp = comp') then
+        (* TODO: Check me *)
+        (*update1 t (if Value.(arg = arg') then None else Some arg)*)
+        (Path pt, update1 t (Some arg))
+      else (render vs, true)
   | _, vs -> (render vs, true)
 
 let rec commit_effs (path : Path.t) : unit =
@@ -448,20 +439,12 @@ let rec commit_effs (path : Path.t) : unit =
   Snoc_list.iter children ~f:commit_effs1;
 
   (* Refetch the entry, as committing effects of children may change it *)
-  let { part_view; _ } = perform (Lookup_ent path) in
-  (match part_view with
-  | Node { eff_q; _ } -> (
-      Job_q.iter eff_q ~f:(fun { body; env; _ } ->
-          (eval |> env_h ~env |> ptph_h ~ptph:(path, P_effect)) body |> ignore);
-      (* Refetch the entry, as committing effects may change it *)
-      let ({ part_view; _ } as ent) = perform (Lookup_ent path) in
-      match part_view with
-      | Node node ->
-          perform
-            (Update_ent
-               ( path,
-                 { ent with part_view = Node { node with eff_q = Job_q.empty } }
-               ))));
+  let { eff_q; _ } = perform (Lookup_ent path) in
+  (Job_q.iter eff_q ~f:(fun { body; env; _ } ->
+       (eval |> env_h ~env |> ptph_h ~ptph:(path, P_effect)) body |> ignore);
+   (* Refetch the entry, as committing effects may change it *)
+   let ent = perform (Lookup_ent path) in
+   perform (Update_ent (path, { ent with eff_q = Job_q.empty })));
   perform
     (Checkpoint { msg = "After effects"; checkpoint = Effects_finish path })
 

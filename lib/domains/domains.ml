@@ -34,17 +34,15 @@ module type T = sig
 
   type phase = P_init | P_succ | P_effect
   type decision = Idle | Retry | Update
-
-  type part_view =
-    | Node of {
-        comp_spec : comp_spec;
-        dec : decision;
-        st_store : st_store;
-        eff_q : job_q;
-      }
-
   type tree = Leaf of const | Path of path
-  type entry = { part_view : part_view; children : tree Snoc_list.t }
+
+  type entry = {
+    comp_spec : comp_spec;
+    dec : decision;
+    st_store : st_store;
+    eff_q : job_q;
+    children : tree Snoc_list.t;
+  }
 
   val sexp_of_clos : clos -> Sexp.t
   val sexp_of_set_clos : set_clos -> Sexp.t
@@ -55,7 +53,6 @@ module type T = sig
   val sexp_of_comp_def : comp_def -> Sexp.t
   val sexp_of_phase : phase -> Sexp.t
   val sexp_of_decision : decision -> Sexp.t
-  val sexp_of_part_view : part_view -> Sexp.t
   val sexp_of_tree : tree -> Sexp.t
   val sexp_of_entry : entry -> Sexp.t
   val sexp_of_addr : addr -> Sexp.t
