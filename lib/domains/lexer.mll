@@ -13,7 +13,6 @@ let keywords =
       ("true", TRUE);
       ("false", FALSE);
       ("not", NOT);
-      ("view", VIEW);
       ("fun", FUN);
       ("rec", REC);
       ("if", IF);

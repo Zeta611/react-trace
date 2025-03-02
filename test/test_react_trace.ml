@@ -317,7 +317,7 @@ let parse_var () =
   parse_expr_test "parse var" "_some_variable123" (e_var "_some_variable123")
 
 let parse_view () =
-  parse_expr_test "parse view" "view [(), 42, (), Comp ()]"
+  parse_expr_test "parse view" "[(), 42, (), Comp ()]"
     (e_view
        [
          e_const Unit;
@@ -500,7 +500,7 @@ let js_jsx () =
   Alcotest.(check' (of_pp Sexp.pp_hum))
     ~msg:"convert jsx" ~actual:(Prog.sexp_of_t prog)
     ~expected:
-      (parse_prog {|view [()]; view [Comp ()]; view [(Mod["Comp"]) ()]|}
+      (parse_prog {|[()]; [Comp ()]; [(Mod["Comp"]) ()]|}
       |> Prog.sexp_of_t)
 
 let js_op () =
@@ -666,7 +666,7 @@ let no_side_effect () =
       {|
 let C x =
   let (s, setS) = useState 42 in
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -681,7 +681,7 @@ let set_in_body_nonterminate () =
 let C x =
   let (s, setS) = useState 42 in
   setS (fun s -> 43);
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -699,7 +699,7 @@ let set_in_body_guarded () =
 let C x =
   let (s, setS) = useState 42 in
   if s = 42 then setS (fun s -> 43);
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -714,7 +714,7 @@ let set_in_effect_step_one_time () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (setS (fun s -> 42));
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -729,7 +729,7 @@ let set_in_effect_step_two_times () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (setS (fun s -> 43));
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -744,7 +744,7 @@ let set_in_effect_step_indefinitely () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (setS (fun s -> s + 1));
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -759,7 +759,7 @@ let set_in_effect_guarded_step_two_times () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (if s = 42 then setS (fun s -> 43));
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -774,7 +774,7 @@ let set_in_effect_guarded_step_n_times () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (if s <= 45 then setS (fun s -> s + 1));
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -789,7 +789,7 @@ let set_in_effect_with_arg_step_one_time () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (if s <> x then setS (fun s -> x));
-  view [()]
+  [()]
 ;;
 C 42
 |}
@@ -804,7 +804,7 @@ let set_in_effect_with_arg_step_two_times () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (if s <> x then setS (fun s -> x));
-  view [()]
+  [()]
 ;;
 C 0
 |}
@@ -818,11 +818,11 @@ let set_passed_step_two_times () =
       {|
 let C setS =
   useEffect (setS (fun s -> 0));
-  view [()]
+  [()]
 ;;
 let D x =
   let (s, setS) = useState 42 in
-  view [C setS]
+  [C setS]
 ;;
 D ()
 |}
@@ -836,11 +836,11 @@ let set_passed_step_indefinitely () =
       {|
 let C setS =
   useEffect (setS (fun s -> s + 1));
-  view [()]
+  [()]
 ;;
 let D x =
   let (s, setS) = useState 42 in
-  view [C setS]
+  [C setS]
 ;;
 D ()
 |}
@@ -855,7 +855,7 @@ let set_in_effect_twice_step_one_time () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (setS (fun s -> 43); setS (fun s -> 42));
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -870,15 +870,15 @@ let set_in_removed_child_step_two_times () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (setS (fun s -> s + 1));
-  view [()]
+  [()]
 ;;
 let D x =
   let (s, setS) = useState true in
   useEffect (setS (fun s -> false));
   if s then
-    view [C ()]
+    [C ()]
   else
-    view [()]
+    [()]
 ;;
 D ()
 |}
@@ -893,15 +893,15 @@ let state_persists_in_child () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (setS (fun s -> 0));
-  view [()]
+  [()]
 ;;
 let D x =
   let (s, setS) = useState true in
   useEffect (setS (fun s -> false));
   if s then
-    view [C ()]
+    [C ()]
   else
-    view [C ()]
+    [C ()]
 ;;
 D ()
 |}
@@ -916,15 +916,15 @@ let new_child_steps_again () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (setS (fun s -> 0));
-  view [s]
+  [s]
 ;;
 let D x =
   let (s, setS) = useState true in
   useEffect (setS (fun s -> false));
   if s then
-    view [C ()]
+    [C ()]
   else
-    view [C (), C ()]
+    [C (), C ()]
 ;;
 D ()
 |}
@@ -939,7 +939,7 @@ let set_in_effect_guarded_step_n_times_with_obj () =
 let C x =
   let (s, setS) = useState (let r = {} in r["x"] := 42; r) in
   useEffect (if s["x"] <= 45 then setS (fun s -> (let r = {} in r["x"] := s["x"] + 1; r)));
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -954,7 +954,7 @@ let updating_obj_without_set_does_not_rerender () =
 let C x =
   let (s, setS) = useState (let r = {} in r["x"] := 42; r) in
   useEffect (s["x"] := 43);
-  view [()]
+  [()]
 ;;
 C ()
 |}
@@ -971,7 +971,7 @@ let C x =
   print "C";
   if s = 0 then setS (fun s -> s + 1);
   useEffect (print "useEffect"; setS (fun s -> 42));
-  view [s]
+  [s]
 ;;
 C ()
 |}
@@ -987,12 +987,12 @@ let child_view_effect_runs_even_idle_but_parent_rerenders () =
       {|
 let C x =
   useEffect (print "C");
-  view ["C"]
+  ["C"]
 ;;
 let D _ =
   let (x, setX) = useState 0 in
   useEffect (setX (fun _ -> 42));
-  view [C 0]
+  [C 0]
 ;;
 D ()
 |}
