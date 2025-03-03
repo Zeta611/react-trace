@@ -322,6 +322,11 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
       ptph_h ~ptph:(path, P_succ) (eval_mult ~re_render) expr
   | Idle | Update -> v
 
+let mount_tree (path : Path.t) (t : tree) : unit =
+  Logger.mount_tree path t;
+  let ent = perform (Lookup_ent path) in
+  perform (Update_ent (path, { ent with children = t }))
+
 let rec render (vs : view_spec) : tree =
   Logger.render vs;
   match vs with
@@ -348,8 +353,7 @@ let rec render (vs : view_spec) : tree =
         |> vs_of_value_exn
       in
       let t = render vs in
-      let entry = perform (Lookup_ent path) in
-      perform (Update_ent (path, { entry with children = t }));
+      mount_tree path t;
       perform (Checkpoint { msg = "Rendered"; checkpoint = Render_finish path });
       Path path
 
@@ -379,11 +383,8 @@ let rec update (path : Path.t) (arg : value) : bool =
   (*perform (Update_ent (path, { ent with children = [] }));*)
   let updated, new_tree = reconcile old_tree vs in
   let dec = perform (Get_dec path) in
-  let ent = perform (Lookup_ent path) in
-  let updated =
-    perform (Update_ent (path, { ent with children = new_tree }));
-    updated || Decision.(dec <> Idle)
-  in
+  mount_tree path new_tree;
+  let updated = updated || Decision.(dec <> Idle) in
   if updated then
     perform
       (Checkpoint { msg = "Rendered (update)"; checkpoint = Render_finish path })

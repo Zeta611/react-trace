@@ -125,6 +125,11 @@ let eval expr =
 let eval_mult expr =
   Logs.debug (fun m -> m "eval_mult %a" Sexp.pp_hum (Expr.sexp_of_t expr))
 
+let mount_tree path t =
+  Logs.debug (fun m ->
+      m "mount_tree [path: %a, t: %a]" Sexp.pp_hum (Path.sexp_of_t path)
+        Sexp.pp_hum (sexp_of_tree t))
+
 let render vs =
   Logs.debug (fun m -> m "render [vs: %a]" Sexp.pp (sexp_of_view_spec vs))
 
