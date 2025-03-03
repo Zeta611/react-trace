@@ -326,6 +326,14 @@ let parse_view () =
          e_app (e_var "Comp") (e_const Unit);
        ])
 
+let parse_nested_view () =
+  parse_expr_test "parse nested view" "[[(), Comp ()], [42, ()]]"
+    (e_view
+       [
+         e_view [ e_const Unit; e_app (e_var "Comp") (e_const Unit) ];
+         e_view [ e_const (Int 42); e_const Unit ];
+       ])
+
 let parse_open_cond () =
   parse_expr_test "parse open cond" "if true then if true then ()"
     (e_cond (e_const (Bool true))
@@ -1011,6 +1019,7 @@ let () =
           test_case "int" `Quick parse_int;
           test_case "var" `Quick parse_var;
           test_case "view" `Quick parse_view;
+          test_case "nested view" `Quick parse_nested_view;
           test_case "open cond" `Quick parse_open_cond;
           test_case "closed cond" `Quick parse_closed_cond;
           test_case "fn" `Quick parse_fn;

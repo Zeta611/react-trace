@@ -6,6 +6,7 @@ open Concrete_domains
 exception Unbound_var of string
 exception Type_error
 exception Invalid_phase
+exception Unreachable
 
 (* path and phase effects *)
 type _ eff += Rd_pt : Path.t eff | Rd_ph : phase eff
@@ -50,6 +51,7 @@ type checkpoint =
   | Retry_start of (int * Path.t)
   | Render_check of Path.t
   | Render_finish of Path.t
+  | Render_cancel of Path.t
   | Effects_finish of Path.t
 
 type _ eff += Checkpoint : { msg : string; checkpoint : checkpoint } -> unit eff

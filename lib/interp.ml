@@ -323,12 +323,13 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
   | Idle | Update -> v
 
 let rec render (vs : view_spec) : tree =
+  Logger.render vs;
   match vs with
   | Vs_const k -> Leaf k
   | Vs_list vss -> List (List.map vss ~f:render)
   | Vs_comp comp_spec ->
-      (* m ⊢ $path fresh *)
       let path = perform Alloc_pt in
+      perform (Checkpoint { msg = "Render"; checkpoint = Render_check path });
       let view =
         {
           comp_spec;
@@ -349,11 +350,11 @@ let rec render (vs : view_spec) : tree =
       let t = render vs in
       let entry = perform (Lookup_ent path) in
       perform (Update_ent (path, { entry with children = t }));
+      perform (Checkpoint { msg = "Rendered"; checkpoint = Render_finish path });
       Path path
 
 let rec update (path : Path.t) (arg : value) : bool =
-  (* Logger.update1 t; *)
-  Logger.update path;
+  Logger.update path arg;
   perform
     (Checkpoint { msg = "Render (update)"; checkpoint = Render_check path });
   let { comp_spec = { comp; _ }; children; _ } = perform (Lookup_ent path) in
@@ -385,11 +386,15 @@ let rec update (path : Path.t) (arg : value) : bool =
   in
   if updated then
     perform
-      (Checkpoint { msg = "Rendered (update)"; checkpoint = Render_finish path });
+      (Checkpoint { msg = "Rendered (update)"; checkpoint = Render_finish path })
+  else
+    perform
+      (Checkpoint
+         { msg = "Render canceled (update)"; checkpoint = Render_cancel path });
   updated
 
 and reconcile (old_tree : tree) (vs : view_spec) : tree * bool =
-  (* Logger.reconcile1 old_tree vs; *)
+  Logger.reconcile old_tree vs;
   match (old_tree, vs) with
   | Leaf k, Vs_const k' when equal_const k k' -> (Leaf k, false)
   | Path path, (Vs_comp { comp; arg } as vs) ->
@@ -409,16 +414,15 @@ and reconcile (old_tree : tree) (vs : view_spec) : tree * bool =
   | _, vs -> (render vs, true)
 
 let rec visit (t : tree) : bool =
-  Logger.update1 t;
+  Logger.visit t;
   match t with
   | Leaf _ -> false
   | List ts -> List.fold ts ~init:false ~f:(fun acc t -> visit t || acc)
   | Path path ->
-      Logger.update path;
       let dec = perform (Get_dec path) in
       let updated =
         match dec with
-        | Retry -> assert false
+        | Retry -> raise Unreachable
         | Idle ->
             let { children; _ } = perform (Lookup_ent path) in
             visit children
@@ -426,19 +430,14 @@ let rec visit (t : tree) : bool =
             let { comp_spec = { arg; _ }; _ } = perform (Lookup_ent path) in
             update path arg
       in
-      if updated then
-        perform
-          (Checkpoint
-             { msg = "Rendered (update)"; checkpoint = Render_finish path });
       updated
 
 let rec commit_effs (t : tree) : unit =
-  Logger.commit_effs1 t;
+  Logger.commit_effs t;
   match t with
   | Leaf _ -> ()
   | List ts -> List.iter ts ~f:commit_effs
   | Path path ->
-      Logger.commit_effs path;
       let { children; _ } = perform (Lookup_ent path) in
       commit_effs children;
 
@@ -464,15 +463,12 @@ let rec collect : Prog.t -> Def_tab.t = function
 let step_prog (deftab : Def_tab.t) (top_exp : Expr.hook_free_t) : tree =
   Logger.step_prog deftab top_exp;
   let vs = top_exp |> eval |> vs_of_value_exn in
-  let root = render vs in
-  commit_effs root;
-  root
+  render vs
 
 let step_path (t : tree) : bool =
-  (* TODO: Logger.step_path path; *)
-  let has_updates = visit t in
-  if has_updates then commit_effs t;
-  has_updates
+  Logger.step_path t;
+  commit_effs t;
+  visit t
 
 type 'recording run_info = {
   steps : int;

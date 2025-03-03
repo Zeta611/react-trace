@@ -125,48 +125,22 @@ let eval expr =
 let eval_mult expr =
   Logs.debug (fun m -> m "eval_mult %a" Sexp.pp_hum (Expr.sexp_of_t expr))
 
-let alloc_tree vs =
-  Logs.debug (fun m -> m "alloc_tree [vs: %a]" Sexp.pp (sexp_of_view_spec vs))
+let render vs =
+  Logs.debug (fun m -> m "render [vs: %a]" Sexp.pp (sexp_of_view_spec vs))
 
-let mount_tree path ?idx tree =
+let update path arg =
   Logs.debug (fun m ->
-      m "mount_tree [path: %a, idx: %a, tree: %a]" Sexp.pp (Path.sexp_of_t path)
-        Sexp.pp
-        ([%sexp_of: int option] idx)
-        Sexp.pp (sexp_of_tree tree))
+      m "update [path: %a, arg: %a]" Sexp.pp (Path.sexp_of_t path) Sexp.pp
+        (sexp_of_value arg))
 
-let render path vss =
+let visit t = Logs.debug (fun m -> m "visit [t: %a]" Sexp.pp (sexp_of_tree t))
+
+let reconcile old_tree vs =
   Logs.debug (fun m ->
-      m "render [path: %a, vss: %a]" Sexp.pp (Path.sexp_of_t path) Sexp.pp
-        ([%sexp_of: view_spec list] vss))
-
-let render1 t =
-  Logs.debug (fun m -> m "render1 [tree: %a]" Sexp.pp (sexp_of_tree t))
-
-let update path =
-  Logs.debug (fun m -> m "update [path: %a]" Sexp.pp (Path.sexp_of_t path))
-
-let update1 t =
-  Logs.debug (fun m -> m "update1 [t: %a]" Sexp.pp (sexp_of_tree t))
-
-let reconcile path old_trees vss =
-  Logs.debug (fun m ->
-      m "reconcile [path: %a, old_trees: %a, vss: %a]" Sexp.pp
-        (Path.sexp_of_t path) Sexp.pp
-        ([%sexp_of: tree option list] old_trees)
-        Sexp.pp
-        ([%sexp_of: view_spec list] vss))
-
-let reconcile1 old_tree vs =
-  Logs.debug (fun m ->
-      m "reconcile1 [old_tree: %a, vs: %a]" Sexp.pp
-        ([%sexp_of: tree option] old_tree)
+      m "reconcile [old_tree: %a, vs: %a]" Sexp.pp (sexp_of_tree old_tree)
         Sexp.pp (sexp_of_view_spec vs))
 
-let commit_effs path =
-  Logs.debug (fun m -> m "commit_effs [path: %a]" Sexp.pp (Path.sexp_of_t path))
-
-let commit_effs1 t =
+let commit_effs t =
   Logs.debug (fun m -> m "commit_effs1 [t: %a]" Sexp.pp (sexp_of_tree t))
 
 let eval_top prog =
@@ -177,8 +151,8 @@ let step_prog deftab top_exp =
       m "step_prog %a %a" Sexp.pp_hum (Def_tab.sexp_of_t deftab) Sexp.pp_hum
         (Expr.sexp_of_t top_exp))
 
-let step_path path =
-  Logs.debug (fun m -> m "step_path %a" Sexp.pp_hum (Path.sexp_of_t path))
+let step_path t =
+  Logs.debug (fun m -> m "step_path %a" Sexp.pp_hum (sexp_of_tree t))
 
 let run prog =
   Logs.debug (fun m -> m "run %a" Sexp.pp_hum (Prog.sexp_of_t prog))
