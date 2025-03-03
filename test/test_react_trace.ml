@@ -32,82 +32,48 @@ let parse_js s =
       (Some { Parser_env.default_parse_options with components = true })
     s None
 
+(* fallback case of alpha_conv_expr; blindly convert all names using the given
+   bindings for readability *)
 let rec alpha_conv_expr_blind : type a.
     (string -> string) -> a Syntax.Expr.desc -> a Syntax.Expr.desc =
   let open Syntax.Expr in
-  let alpha_conv_expr_blind' bindings { desc; loc } =
-    { desc = alpha_conv_expr_blind bindings desc; loc }
-  in
-  fun bindings -> function
+  fun bindings e ->
+    let subst { desc; loc } =
+      { desc = alpha_conv_expr_blind bindings desc; loc }
+    in
+    match e with
     | Const c -> Const c
     | Var x -> Var (bindings x)
     | Comp c -> Comp c
-    | View es -> View (List.map es ~f:(alpha_conv_expr_blind' bindings))
+    | View es -> View (List.map es ~f:subst)
     | Cond { pred; con; alt } ->
-        Cond
-          {
-            pred = alpha_conv_expr_blind' bindings pred;
-            con = alpha_conv_expr_blind' bindings con;
-            alt = alpha_conv_expr_blind' bindings alt;
-          }
+        Cond { pred = subst pred; con = subst con; alt = subst alt }
     | Fn { self; param; body } ->
-        Fn
-          {
-            self = Option.map ~f:bindings self;
-            param;
-            body = alpha_conv_expr_blind' bindings body;
-          }
-    | App { fn; arg } ->
-        App
-          {
-            fn = alpha_conv_expr_blind' bindings fn;
-            arg = alpha_conv_expr_blind' bindings arg;
-          }
+        Fn { self = Option.map ~f:bindings self; param; body = subst body }
+    | App { fn; arg } -> App { fn = subst fn; arg = subst arg }
     | Let { id; bound; body } ->
-        Let
-          {
-            id = bindings id;
-            bound = alpha_conv_expr_blind' bindings bound;
-            body = alpha_conv_expr_blind' bindings body;
-          }
+        Let { id = bindings id; bound = subst bound; body = subst body }
     | Stt { stt; set; init; body; label } ->
         Stt
           {
             stt = bindings stt;
             set = bindings set;
-            init = alpha_conv_expr_blind' bindings init;
-            body = alpha_conv_expr_blind' bindings body;
+            init = subst init;
+            body = subst body;
             label = bindings (Int.to_string label) |> Int.of_string;
           }
-    | Eff e -> Eff (alpha_conv_expr_blind' bindings e)
-    | Seq (e1, e2) ->
-        Seq
-          ( alpha_conv_expr_blind' bindings e1,
-            alpha_conv_expr_blind' bindings e2 )
+    | Eff e -> Eff (subst e)
+    | Seq (e1, e2) -> Seq (subst e1, subst e2)
     | Bop { left; right; op } ->
-        Bop
-          {
-            left = alpha_conv_expr_blind' bindings left;
-            right = alpha_conv_expr_blind' bindings right;
-            op;
-          }
-    | Uop { arg; op } -> Uop { arg = alpha_conv_expr_blind' bindings arg; op }
+        Bop { left = subst left; right = subst right; op }
+    | Uop { arg; op } -> Uop { arg = subst arg; op }
     | Alloc -> Alloc
     | Set { obj; idx; value } ->
-        Set
-          {
-            obj = alpha_conv_expr_blind' bindings obj;
-            idx = alpha_conv_expr_blind' bindings idx;
-            value = alpha_conv_expr_blind' bindings value;
-          }
-    | Get { obj; idx } ->
-        Get
-          {
-            obj = alpha_conv_expr_blind' bindings obj;
-            idx = alpha_conv_expr_blind' bindings idx;
-          }
-    | Print e -> Print (alpha_conv_expr_blind' bindings e)
+        Set { obj = subst obj; idx = subst idx; value = subst value }
+    | Get { obj; idx } -> Get { obj = subst obj; idx = subst idx }
+    | Print e -> Print (subst e)
 
+(* convert names in src to match those in base *)
 let rec alpha_conv_expr : type a.
     (string -> string) -> a Syntax.Expr.t -> a Syntax.Expr.t -> a Syntax.Expr.t
     =
@@ -1007,6 +973,32 @@ D ()
   Alcotest.(check' string)
     ~msg:"C gets printed two times" ~expected:"C\nC\n" ~actual:output
 
+let nested_view_render_order () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  useEffect (print x);
+  x
+;;
+let D _ =
+  let (x, setX) = useState 0 in
+  useEffect (setX (fun _ -> 42));
+  useEffect (print "D");
+  [C "0", [C "1", C "2"]]
+;;
+let E _ =
+  useEffect (print "E");
+  [D (), C "3"]
+;;
+E ()
+|}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"effects run in correct order"
+    ~expected:"0\n1\n2\nD\n3\nE\n0\n1\n2\nD\n" ~actual:output
+
 let () =
   let open Alcotest in
   run "Interpreter"
@@ -1109,5 +1101,6 @@ let () =
             effect_queue_gets_flushed_on_retry;
           test_case "Idle child's effects are run when parent re-renders" `Quick
             child_view_effect_runs_even_idle_but_parent_rerenders;
+          test_case "Nested view render order" `Quick nested_view_render_order;
         ] );
     ]

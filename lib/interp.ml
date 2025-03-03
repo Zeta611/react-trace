@@ -329,7 +329,6 @@ let rec render (vs : view_spec) : tree =
   | Vs_list vss -> List (List.map vss ~f:render)
   | Vs_comp comp_spec ->
       let path = perform Alloc_pt in
-      perform (Checkpoint { msg = "Render"; checkpoint = Render_check path });
       let view =
         {
           comp_spec;
@@ -340,6 +339,7 @@ let rec render (vs : view_spec) : tree =
         }
       in
       perform (Update_ent (path, view));
+      perform (Checkpoint { msg = "Render"; checkpoint = Render_check path });
       let { comp; arg } = comp_spec in
       let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
       let env = Env.extend Env.empty ~id:param ~value:arg in

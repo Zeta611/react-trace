@@ -9,8 +9,11 @@ open Interp_effects
 include Recorder_intf
 
 let get_path_from_checkpoint = function
-  | Retry_start (_, pt) | Render_check pt | Render_finish pt | Effects_finish pt
-    ->
+  | Retry_start (_, pt)
+  | Render_check pt
+  | Render_finish pt
+  | Render_cancel pt
+  | Effects_finish pt ->
       pt
 
 type tree = { path : string; name : string; children : tree list }
