@@ -377,7 +377,7 @@ let rec update (path : Path.t) (arg : value) : bool =
                'in-place' update now *)
   (*let ent = perform (Lookup_ent path) in*)
   (*perform (Update_ent (path, { ent with children = [] }));*)
-  let new_tree, updated = reconcile old_tree vs in
+  let updated, new_tree = reconcile old_tree vs in
   let dec = perform (Get_dec path) in
   let ent = perform (Lookup_ent path) in
   let updated =
@@ -393,14 +393,14 @@ let rec update (path : Path.t) (arg : value) : bool =
          { msg = "Render canceled (update)"; checkpoint = Render_cancel path });
   updated
 
-and reconcile (old_tree : tree) (vs : view_spec) : tree * bool =
+and reconcile (old_tree : tree) (vs : view_spec) : bool * tree =
   Logger.reconcile old_tree vs;
   match (old_tree, vs) with
-  | Leaf k, Vs_const k' when equal_const k k' -> (Leaf k, false)
+  | Leaf k, Vs_const k' when equal_const k k' -> (false, Leaf k)
   | Path path, (Vs_comp { comp; arg } as vs) ->
       let { comp_spec = { comp = comp'; _ }; _ } = perform (Lookup_ent path) in
-      if Id.(comp = comp') then (Path path, update path arg)
-      else (render vs, true)
+      if Id.(comp = comp') then (update path arg, Path path)
+      else (true, render vs)
   | List ts, Vs_list vss ->
       let len_ts = List.length ts in
       let len_vs = List.length vss in
@@ -409,9 +409,9 @@ and reconcile (old_tree : tree) (vs : view_spec) : tree * bool =
           (ts @ List.init (len_vs - len_ts) ~f:(fun _ -> Leaf Unit), vss)
         else (List.take ts len_vs, vss)
       in
-      let new_ts, updated = List.map2_exn ts vs ~f:reconcile |> List.unzip in
-      (List new_ts, List.exists updated ~f:Fn.id)
-  | _, vs -> (render vs, true)
+      let updated, new_ts = List.map2_exn ts vs ~f:reconcile |> List.unzip in
+      (List.exists updated ~f:Fn.id, List new_ts)
+  | _, vs -> (true, render vs)
 
 let rec visit (t : tree) : bool =
   Logger.visit t;
