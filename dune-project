@@ -29,10 +29,12 @@
   dune
   base
   stdio
+  string_dict
   ppx_jane
   js_of_ocaml
   js_of_ocaml-ppx
-  (flow_parser (>= 0.257.0))
+  (flow_parser
+   (>= 0.257.0))
   (printbox
    (>= 0.12))
   (printbox-text

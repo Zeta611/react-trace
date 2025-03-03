@@ -2,7 +2,7 @@
  (name lib_domains)
  (preprocess
   (pps ppx_jane))
- (libraries base logs ppx_jane))
+ (libraries base string_dict logs ppx_jane))
 
 (ocamllex lexer)
 

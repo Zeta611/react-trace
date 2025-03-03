@@ -30,7 +30,7 @@ and label_stts_expr label = function
 %token IF THEN ELSE
 %token NOT EQ LT GT NE LE GE
 %token AND OR
-%token PLUS MINUS TIMES
+%token PLUS MINUS TIMES DIV MOD
 %token LPAREN RPAREN LBRACK RBRACK
 %token RARROW COMMA SEMI SEMISEMI
 %token EOF
@@ -46,7 +46,7 @@ and label_stts_expr label = function
 %right    AND
 %left     EQ LT GT NE LE GE
 %left     PLUS MINUS
-%left     TIMES
+%left     TIMES DIV MOD
 %nonassoc prec_unary
 
 %start <Prog.t> prog
@@ -128,6 +128,8 @@ expr_:
     | PLUS { Plus }
     | MINUS { Minus }
     | TIMES { Times }
+    | DIV { Div }
+    | MOD { Mod }
 apply:
     | atom { $1 }
     | mkexp(fn = apply; arg = atom

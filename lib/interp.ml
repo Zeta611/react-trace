@@ -278,6 +278,8 @@ let rec eval : type a. a Expr.t -> value =
         | Plus, Const (Int i1), Const (Int i2) -> Int (i1 + i2)
         | Minus, Const (Int i1), Const (Int i2) -> Int (i1 - i2)
         | Times, Const (Int i1), Const (Int i2) -> Int (i1 * i2)
+        | Div, Const (Int i1), Const (Int i2) -> Int (i1 / i2)
+        | Mod, Const (Int i1), Const (Int i2) -> Int (Int.rem i1 i2)
         | _, _, _ -> raise Type_error
       in
       Const k
