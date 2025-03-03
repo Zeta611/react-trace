@@ -802,6 +802,24 @@ D ()
   let steps = run prog in
   Alcotest.(check' int) ~msg:"step two times" ~expected:2 ~actual:steps
 
+let set_passed_invalid_phase () =
+  let prog =
+    parse_prog
+      {|
+let C setS =
+  setS (fun s -> 0);
+  [()]
+;;
+let D x =
+  let (s, setS) = useState 42 in
+  [C setS]
+;;
+D ()
+|}
+  in
+  let run () = run prog |> ignore in
+  Alcotest.(check_raises) "step one time" Interp_effects.Invalid_phase run
+
 let set_passed_step_indefinitely () =
   let prog =
     parse_prog
@@ -1075,6 +1093,8 @@ let () =
             `Quick set_in_effect_with_arg_step_two_times;
           test_case "Re-render 1 time when setter is called in useEffect (5)"
             `Quick set_passed_step_two_times;
+          test_case "Invalid phase when foreign setter is called in PInit" `Quick
+            set_passed_invalid_phase;
           test_case
             "Inifinite re-renders when diverging setter is called in useEffect \
              (2)"

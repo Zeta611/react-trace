@@ -191,8 +191,9 @@ let rec eval : type a. a Expr.t -> value =
           let phase = perform Rd_ph in
 
           let dec =
-            if Path.(path = self_pt) && Phase.(phase <> P_effect) then Retry
-            else Update
+            if Phase.(phase = P_effect) then Update
+            else if Path.(path = self_pt) then Retry
+            else raise Invalid_phase
           in
           perform (Set_dec (path, dec));
 
