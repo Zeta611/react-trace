@@ -91,3 +91,5 @@ tags
 [._]*.un~
 
 # End of https://www.toptal.com/developers/gitignore/api/ocaml,vim,macos,direnv
+
+/react-trace.bc.js
