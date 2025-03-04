@@ -28,9 +28,10 @@ let leaf : const -> B.t = function
   | String s -> B.text s
 
 let rec tree : tree -> B.t = function
-  | Leaf k -> leaf k
-  | List l -> list l
-  | Path p -> path p
+  | T_const k -> leaf k
+  | T_clos cl -> clos cl
+  | T_list l -> list l
+  | T_path p -> path p
 
 and list (ts : tree list) : B.t = B.hlist_map (fun t -> tree t |> align) ts
 
@@ -50,7 +51,6 @@ and path (pt : Path.t) : B.t =
     let st_trees =
       let st_store = St_store.to_alist st_store in
       List.map st_store ~f:(fun (lbl, (value, job_q)) ->
-          let lbl = Int.to_string lbl in
           let value = Sexp.to_string (sexp_of_value value) in
           let job_q = Job_q.to_list job_q |> List.map ~f:clos in
 

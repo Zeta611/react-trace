@@ -24,9 +24,10 @@ module type T = sig
     | Const of const
     | Addr of addr
     | Comp of Id.t
-    | List_spec of view_spec list
     | Clos of clos
     | Set_clos of set_clos
+    | Clos_spec of clos
+    | List_spec of view_spec list
     | Comp_spec of comp_spec
 
   and comp_spec = { comp : Id.t; arg : value }
@@ -37,8 +38,9 @@ module type T = sig
     | Vs_list of view_spec list
     | Vs_comp of comp_spec
 
-  type phase = P_init | P_succ | P_effect
+  type phase = P_init of path | P_succ of path | P_effect
   type decision = Idle | Retry | Update
+  type mode = M_react | M_eloop
 
   type tree =
     | T_const of const
@@ -68,6 +70,7 @@ module type T = sig
   val sexp_of_addr : addr -> Sexp.t
   val sexp_of_obj : obj -> Sexp.t
   val equal_const : const -> const -> bool
+  val equal_path : path -> path -> bool
 end
 
 module type Path = sig
@@ -206,6 +209,14 @@ module type Decision = sig
   val ( <> ) : t -> t -> bool
 end
 
+module type Mode = sig
+  type t
+
+  val equal : t -> t -> bool
+  val ( = ) : t -> t -> bool
+  val ( <> ) : t -> t -> bool
+end
+
 module type S = sig
   module T : T
   include T
@@ -243,4 +254,5 @@ module type S = sig
 
   module Phase : Phase with type t = phase
   module Decision : Decision with type t = decision
+  module Mode : Mode with type t = mode
 end

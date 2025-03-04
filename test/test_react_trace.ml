@@ -7,14 +7,21 @@ let max_fuel = 100
 let run prog =
   let open Interp in
   let { steps; _ } =
-    run ~fuel:max_fuel ~recorder:(module Default_recorder) prog
+    run ~fuel:max_fuel ~recorder:(module Default_recorder) ~event_q_handler:(Default_event_q.event_h ~event_q:[]) prog
   in
   steps
 
 let run_output prog =
   let open Interp in
   let { output; _ } =
-    run ~fuel:max_fuel ~recorder:(module Default_recorder) prog
+    run ~fuel:max_fuel ~recorder:(module Default_recorder) ~event_q_handler:(Default_event_q.event_h ~event_q:[]) prog
+  in
+  output
+
+let run_event_output ~event_q prog =
+  let open Interp in
+  let { output; _ } =
+    run ~fuel:max_fuel ~recorder:(module Default_recorder) ~event_q_handler:(Default_event_q.event_h ~event_q) prog
   in
   output
 
@@ -45,6 +52,7 @@ let rec alpha_conv_expr_blind : type a.
     | Const c -> Const c
     | Var x -> Var (bindings x)
     | Comp c -> Comp c
+    | Button e -> Button (subst e)
     | View es -> View (List.map es ~f:subst)
     | Cond { pred; con; alt } ->
         Cond { pred = subst pred; con = subst con; alt = subst alt }
@@ -91,7 +99,8 @@ let rec alpha_conv_expr : type a.
            if len < len' then
              View
                (List.map2_exn es (List.take es' len)
-                  ~f:(alpha_conv_expr bindings))
+                  ~f:(alpha_conv_expr bindings)
+               @ List.drop es' len)
            else if len > len' then
              View
                (List.map2_exn (List.take es len') es'
@@ -258,6 +267,9 @@ let e_set obj idx value =
 let e_get obj idx = Syntax.Expr.{ desc = Get { obj; idx }; loc = Location.none }
 let e_alloc = Syntax.Expr.{ desc = Alloc; loc = Location.none }
 
+let e_button e =
+  Syntax.Expr.{ desc = Button e; loc = Location.none }
+
 let parse_expr_test msg input expected =
   let open Syntax in
   let (Ex expr) = parse_expr input in
@@ -377,6 +389,10 @@ let parse_indexing () =
 let parse_string () =
   parse_expr_test "parse string" "\"hello world\""
     (e_const (String "hello world"))
+
+let parse_button () =
+  parse_expr_test "parse button" "button 0"
+    (e_button (e_const (Int 0)))
 
 let js_convert_test msg input expected =
   let open Syntax in
@@ -606,15 +622,15 @@ let js_if_cpl_brk_nrm () =
 
 let js_component () =
   js_convert_test "convert component" "function Comp(p) { return <></>; }"
-    {|let Comp p = view [()];; ()|}
+    {|let Comp p = [()];; ()|}
 
 let js_let_component () =
   js_convert_test "convert let component"
-    "let Comp = function(p) { return <></>; }" {|let Comp p = view [()];; ()|}
+    "let Comp = function(p) { return <></>; }" {|let Comp p = [()];; ()|}
 
 let js_arrow_component () =
   js_convert_test "convert arrow component"
-    "let Comp = (p) => { return <></>; }" {|let Comp p = view [()];; ()|}
+    "let Comp = (p) => { return <></>; }" {|let Comp p = [()];; ()|}
 
 let js_use_state () =
   js_convert_test "convert useState"
@@ -1043,6 +1059,21 @@ E ()
     ~msg:"effects run in correct order"
     ~expected:"0\n1\n2\nD\n3\nE\n0\n1\n2\nD\n" ~actual:output
 
+let event_handler_prints () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  button (print x)
+;;
+C "0"
+|}
+  in
+  let output = run_event_output ~event_q:[0] prog in
+  Alcotest.(check' string)
+    ~msg:"event handler prints"
+    ~expected:"0\n" ~actual:output
+
 let () =
   let open Alcotest in
   run "Interpreter"
@@ -1070,6 +1101,7 @@ let () =
           test_case "obj" `Quick parse_obj;
           test_case "indexing" `Quick parse_indexing;
           test_case "string" `Quick parse_string;
+          test_case "button" `Quick parse_button;
         ] );
       ( "convert",
         [
@@ -1157,5 +1189,6 @@ let () =
           test_case "Idle child's effects are run when parent re-renders" `Quick
             child_view_effect_runs_even_idle_but_parent_rerenders;
           test_case "Nested view render order" `Quick nested_view_render_order;
+          test_case "Event handler prints" `Quick event_handler_prints;
         ] );
     ]

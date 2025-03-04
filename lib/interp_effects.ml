@@ -7,6 +7,7 @@ exception Unbound_var of string
 exception Type_error
 exception Invalid_phase
 exception Unreachable
+exception Event_queue_not_empty
 
 (* path and phase effects *)
 type _ eff += Rd_pt : Path.t eff | Rd_ph : phase eff
@@ -41,8 +42,11 @@ type _ eff +=
 type _ eff += Lookup_comp : Id.t -> comp_def eff | Get_comp_env : Env.t eff
 
 (* I/O effects *)
-type _ eff += Print : string -> unit eff
-(*| Click : unit -> unit eff*)
+type _ eff +=
+  | Print : string -> unit eff
+
+(* event queue effects *)
+  | Listen : int option eff
 
 (* tree memory effects for instrumentation *)
 type _ eff += Get_root_pt : Path.t eff

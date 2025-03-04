@@ -3,18 +3,18 @@ open Lib_domains
 open Syntax
 open Concrete_domains
 
-let ptph ((pt, ph) : Path.t * Phase.t) = function
+let ph (ph : Phase.t) = function
   | `Ret ->
       Logs.debug (fun m ->
-          m "ptph_h Ret [pt: %a, ph: %a]" Sexp.pp_hum (Path.sexp_of_t pt)
+          m "ph_h Ret [ph: %a]"
             Sexp.pp_hum (sexp_of_phase ph))
   | `Rd_pt ->
       Logs.debug (fun m ->
-          m "ptph_h Rd_pt [pt: %a, ph: %a]" Sexp.pp_hum (Path.sexp_of_t pt)
+          m "ph_h Rd_pt [ph: %a]"
             Sexp.pp_hum (sexp_of_phase ph))
   | `Rd_ph ->
       Logs.debug (fun m ->
-          m "ptph_h Rd_ph [pt: %a, ph: %a]" Sexp.pp_hum (Path.sexp_of_t pt)
+          m "ph_h Rd_ph [ph: %a]"
             Sexp.pp_hum (sexp_of_phase ph))
 
 let env env = function
@@ -119,6 +119,10 @@ let io io = function
   | `Ret -> Logs.debug (fun m -> m "io_h Ret [%s]" io)
   | `Print s -> Logs.debug (fun m -> m "io_h Print [%s]" s)
 
+let event event = function
+  | `Ret -> Logs.debug (fun m -> m "event_h Ret [%a]" Sexp.pp_hum ([%sexp_of: int list] event))
+  | `Listen -> Logs.debug (fun m -> m "event_h Listen [%a]" Sexp.pp_hum ([%sexp_of: int list] event))
+
 let eval expr =
   Logs.debug (fun m -> m "eval %a" Sexp.pp_hum (Expr.sexp_of_t expr))
 
@@ -158,6 +162,9 @@ let step_prog deftab top_exp =
 
 let step_path t =
   Logs.debug (fun m -> m "step_path %a" Sexp.pp_hum (sexp_of_tree t))
+
+let step_loop t =
+  Logs.debug (fun m -> m "step_loop %a" Sexp.pp_hum (sexp_of_tree t))
 
 let run prog =
   Logs.debug (fun m -> m "run %a" Sexp.pp_hum (Prog.sexp_of_t prog))

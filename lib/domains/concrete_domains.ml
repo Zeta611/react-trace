@@ -3,7 +3,7 @@ open Syntax
 
 module M : Domains.S = struct
   module rec T : (Domains.T with type path = int) = struct
-    type path = Path.t [@@deriving sexp_of]
+    type path = Path.t [@@deriving sexp_of, equal]
     type env = Env.t [@@deriving sexp_of]
     type addr = Addr.t [@@deriving sexp_of]
     type obj = Obj.t [@@deriving sexp_of]
@@ -28,9 +28,10 @@ module M : Domains.S = struct
       | Const of const
       | Addr of addr
       | Comp of Id.t
-      | List_spec of view_spec list
       | Clos of clos
       | Set_clos of set_clos
+      | Clos_spec of clos
+      | List_spec of view_spec list
       | Comp_spec of comp_spec
 
     and set_clos = { label : Label.t; path : path }
@@ -43,8 +44,9 @@ module M : Domains.S = struct
       | Vs_comp of comp_spec
     [@@deriving sexp_of]
 
-    type phase = P_init | P_succ | P_effect [@@deriving sexp_of]
+    type phase = P_init of path | P_succ of path | P_effect [@@deriving sexp_of]
     type decision = Idle | Retry | Update [@@deriving sexp_of]
+    type mode = M_react | M_eloop
 
     type tree =
       | T_const of const
@@ -210,9 +212,9 @@ module M : Domains.S = struct
 
     let to_vs = function
       | Const k -> Some (Vs_const k)
-      | Clos c -> Some (Vs_clos c)
-      | List_spec vss -> Some (Vs_list vss)
-      | Comp_spec t -> Some (Vs_comp t)
+      | Clos_spec cl -> Some (Vs_clos cl)
+      | List_spec l -> Some (Vs_list l)
+      | Comp_spec c -> Some (Vs_comp c)
       | _ -> None
 
     let to_clos = function Clos c -> Some c | _ -> None
@@ -230,7 +232,7 @@ module M : Domains.S = struct
   end
 
   module Phase = struct
-    type t = phase = P_init | P_succ | P_effect [@@deriving equal]
+    type t = phase = P_init of path | P_succ of path | P_effect [@@deriving equal]
 
     let ( = ) = equal
     let ( <> ) p1 p2 = not (p1 = p2)
@@ -241,6 +243,13 @@ module M : Domains.S = struct
 
     let ( = ) = equal
     let ( <> ) d1 d2 = not (d1 = d2)
+  end
+
+  module Mode = struct
+    type t = mode = M_react | M_eloop [@@deriving equal]
+
+    let ( = ) = equal
+    let ( <> ) m1 m2 = not (m1 = m2)
   end
 end
 

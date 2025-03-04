@@ -13,20 +13,22 @@ let re_render_limit_h (type a b) (f : a -> b) (x : a) : re_render_limit:int -> b
   | effect Re_render_limit, k ->
       fun ~re_render_limit -> continue k re_render_limit ~re_render_limit
 
-let ptph_h (type a b) (f : a -> b) (x : a) : ptph:Path.t * phase -> b =
+let ph_h (type a b) (f : a -> b) (x : a) : ph:phase -> b =
   match f x with
   | v ->
-      fun ~ptph ->
-        Logger.ptph ptph `Ret;
+      fun ~ph ->
+        Logger.ph ph `Ret;
         v
   | effect Rd_pt, k ->
-      fun ~ptph ->
-        Logger.ptph ptph `Rd_pt;
-        continue k (fst ptph) ~ptph
+      (fun ~ph ->
+        Logger.ph ph `Rd_pt;
+        match ph with
+        | P_init pt | P_succ pt -> continue k pt ~ph
+        | P_effect -> raise Invalid_phase)
   | effect Rd_ph, k ->
-      fun ~ptph ->
-        Logger.ptph ptph `Rd_ph;
-        continue k (snd ptph) ~ptph
+      fun ~ph ->
+        Logger.ph ph `Rd_ph;
+        continue k ph ~ph
 
 let rec env_h : type a b. (a -> b) -> a -> env:Env.t -> b =
  fun f x ->
@@ -171,6 +173,9 @@ let rec eval : type a. a Expr.t -> value =
       let env = perform Rd_env in
       Env.lookup env ~id
   | Comp c -> Comp c
+  | Button e ->
+      (* TODO: evaluate e to a closure and use it as an argument *)
+      Clos_spec { self = None; param = Id.unit; body = e; env = perform Rd_env }
   | View es -> List_spec (List.map es ~f:(fun e -> eval e |> vs_of_value_exn))
   | Cond { pred; con; alt } ->
       let p = eval pred |> bool_of_value_exn in
@@ -186,13 +191,13 @@ let rec eval : type a. a Expr.t -> value =
           (* Argument to the setter should be a setting thunk *)
           let clos = eval arg |> clos_of_value_exn in
 
-          let self_pt = perform Rd_pt in
           let phase = perform Rd_ph in
 
           let dec =
-            if Phase.(phase = P_effect) then Update
-            else if Path.(path = self_pt) then Retry
-            else raise Invalid_phase
+            match phase with
+            | P_effect -> Update
+            | (P_init self_pt | P_succ self_pt) when Path.(path = self_pt) -> Retry
+            | _ -> raise Invalid_phase
           in
           perform (Set_dec (path, dec));
 
@@ -210,7 +215,7 @@ let rec eval : type a. a Expr.t -> value =
   | Stt { label; stt; set; init; body } -> (
       let path = perform Rd_pt in
       match perform Rd_ph with
-      | P_init ->
+      | P_init _ ->
           let v = eval init in
           let env =
             perform Rd_env
@@ -219,7 +224,7 @@ let rec eval : type a. a Expr.t -> value =
           in
           perform (Update_st (path, label, (v, Job_q.empty)));
           perform (In_env env) eval body
-      | P_succ ->
+      | P_succ _ ->
           let v_old, q = perform (Lookup_st (path, label)) in
           (* Run the setting thunks in the set queue *)
           let v =
@@ -321,7 +326,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
            { msg = "Will retry"; checkpoint = Retry_start (re_render, path) });
       let ent = perform (Lookup_ent path) in
       perform (Update_ent (path, { ent with eff_q = Job_q.empty }));
-      ptph_h ~ptph:(path, P_succ) (eval_mult ~re_render) expr
+      ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr
   | Idle | Update -> v
 
 let mount_tree (path : Path.t) (t : tree) : unit =
@@ -352,7 +357,7 @@ let rec render (vs : view_spec) : tree =
       let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
       let env = Env.extend Env.empty ~id:param ~value:arg in
       let vs =
-        (eval_mult |> env_h ~env |> ptph_h ~ptph:(path, P_init)) body
+        (eval_mult |> env_h ~env |> ph_h ~ph:(P_init path)) body
         |> vs_of_value_exn
       in
       let t = render vs in
@@ -370,7 +375,7 @@ let rec update (path : Path.t) (arg : value) : bool =
   perform (Set_arg (path, arg));
   let env = Env.extend Env.empty ~id:param ~value:arg in
   let vs =
-    (eval_mult |> env_h ~env |> ptph_h ~ptph:(path, P_succ)) body
+    (eval_mult |> env_h ~env |> ph_h ~ph:(P_succ path)) body
     |> vs_of_value_exn
   in
 
@@ -448,7 +453,7 @@ let rec commit_effs (t : tree) : unit =
       (* Refetch the entry, as committing effects of children may change it *)
       let { eff_q; _ } = perform (Lookup_ent path) in
       (Job_q.iter eff_q ~f:(fun { body; env; _ } ->
-           (eval |> env_h ~env |> ptph_h ~ptph:(path, P_effect)) body |> ignore);
+           (eval |> env_h ~env |> ph_h ~ph:(P_effect)) body |> ignore);
        (* Refetch the entry, as committing effects may change it *)
        let ent = perform (Lookup_ent path) in
        perform (Update_ent (path, { ent with eff_q = Job_q.empty })));
@@ -477,14 +482,20 @@ let step_path (t : tree) : bool =
   if b then commit_effs t;
   b
 
-let rec collect_handlers (t : tree) : clos list =
+let rec handlers (t : tree) : clos list =
   match t with
   | T_const _ -> []
   | T_clos cl -> [ cl ]
-  | T_list ts -> List.concat_map ts ~f:collect_handlers
+  | T_list ts -> List.concat_map ts ~f:handlers
   | T_path path ->
       let { children; _ } = perform (Lookup_ent path) in
-      collect_handlers children
+      handlers children
+
+let step_loop i (t : tree) : unit =
+  Logger.step_loop t;
+  (* TODO: exn? *)
+  let { env; body; _ } = List.nth_exn (handlers t) i in
+  (eval |> env_h ~env |> ph_h ~ph:P_effect) body |> ignore
 
 type 'recording run_info = {
   steps : int;
@@ -495,6 +506,7 @@ type 'recording run_info = {
 }
 
 let run (type recording) ?(fuel : int option)
+    ~event_q_handler
     ~(recorder : (module Recorder_intf.Intf with type recording = recording))
     (prog : Prog.t) : recording run_info =
   Logger.run prog;
@@ -507,13 +519,28 @@ let run (type recording) ?(fuel : int option)
     Logs.info (fun m -> m "Step prog %d" !cnt);
 
     let root = step_prog deftab top_exp in
-    let rec step () =
-      Logs.info (fun m -> m "Step path %d" (!cnt + 1));
-      if step_path root then (
-        Int.incr cnt;
-        match fuel with Some n when !cnt >= n -> () | _ -> step ())
+    let rec step mode =
+      match mode with
+      | M_react ->
+        Logs.info (fun m -> m "Step path %d" (!cnt + 1));
+        if step_path root then (
+          Int.incr cnt;
+          match fuel with
+          | Some n when !cnt >= n -> ()
+          | _ -> step M_react)
+        else
+          step M_eloop
+      | M_eloop ->
+        let i = perform Listen in
+        match i with
+        | None ->
+          Logs.info (fun m -> m "Terminate");
+          ()
+        | Some i ->
+          Logs.info (fun m -> m "Step loop [event: %d]" i);
+          step_loop i root; step M_react
     in
-    step ();
+    step M_react;
     !cnt
   in
 
@@ -525,5 +552,6 @@ let run (type recording) ?(fuel : int option)
   let driver () = deftab_h ~deftab driver () in
   let driver () = mem_h ~mem:Memory.empty driver () in
   let driver () = io_h ~output:"" driver () in
+  let driver () = event_q_handler driver () in
   let (((steps, recording), treemem), mem), output = driver () in
   { steps; mem; treemem; output; recording }

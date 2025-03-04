@@ -15,10 +15,14 @@ let rec label_stts_prog = function
 
 and label_stts_expr label = function
   | { desc = Stt s; loc } ->
+      if Label.(s.label = "") then
         Expr.mk ~loc
           (Stt { s with
-            label = if Label.(s.label = "") then Int.to_string label else s.label;
+            label = Int.to_string label;
             body = label_stts_expr (label + 1) s.body })
+      else
+        Expr.mk ~loc
+          (Stt { s with body = label_stts_expr label s.body })
   | e -> e
 %}
 
@@ -27,7 +31,7 @@ and label_stts_expr label = function
 %token <string> ID COMP
 %token <string> STRING
 %token RECORD ASSIGN
-%token FUN REC LET STT IN EFF PRINT
+%token FUN REC LET STT IN EFF PRINT BUTTON
 %token IF THEN ELSE
 %token NOT EQ LT GT NE LE GE
 %token AND OR
@@ -90,6 +94,9 @@ expr_:
       { $1 }
     | mkexp(PRINT; e = expr_
       { Print (hook_free_exn e) })
+      { $1 }
+    | mkexp(BUTTON; e = expr_
+      { Button (hook_free_exn e) })
       { $1 }
     | mkexp(LBRACK; vss = separated_nonempty_list(COMMA, expr_); RBRACK
       { View (List.map hook_free_exn vss) })
