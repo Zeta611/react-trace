@@ -22,7 +22,7 @@
         devPackagesQuery = {
           ocaml-lsp-server = "1.22.0";
           ocamlformat = "0.27.0";
-          utop = "*";
+          utop = "2.15.0";
           alcotest = "*";
         };
         query = devPackagesQuery // {
