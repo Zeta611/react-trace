@@ -60,7 +60,7 @@ let rec alpha_conv_expr_blind : type a.
             set = bindings set;
             init = subst init;
             body = subst body;
-            label = bindings (Int.to_string label) |> Int.of_string;
+            label;
           }
     | Eff e -> Eff (subst e)
     | Seq (e1, e2) -> Seq (subst e1, subst e2)
@@ -146,18 +146,11 @@ let rec alpha_conv_expr : type a.
                body = alpha_conv_expr bindings' body body';
              }
        | ( Stt { stt; set; init; body; label },
-           Stt
-             {
-               stt = stt';
-               set = set';
-               init = init';
-               body = body';
-               label = label';
-             } ) ->
+           Stt { stt = stt'; set = set'; init = init'; body = body'; label = _ }
+         ) ->
            let bindings' x =
              if String.(x = stt') then stt
              else if String.(x = set') then set
-             else if String.(x = Int.to_string label') then Int.to_string label
              else bindings x
            in
            Stt
@@ -333,8 +326,16 @@ let parse_let () =
 let parse_stt () =
   parse_expr_test "parse stt"
     "let (x, setX) = useState 42 in let (y, setY) = useState -42 in x + y"
-    (e_stt 0 "x" "setX" (e_const (Int 42))
-       (e_stt 1 "y" "setY"
+    (e_stt "0" "x" "setX" (e_const (Int 42))
+       (e_stt "1" "y" "setY"
+          (e_uop Uminus (e_const (Int 42)))
+          (e_bop Plus (e_var "x") (e_var "y"))))
+
+let parse_stt_labeled () =
+  parse_expr_test "parse stt labeled"
+    "let (x, setX) = useState^a 42 in let (y, setY) = useState^b -42 in x + y"
+    (e_stt "a" "x" "setX" (e_const (Int 42))
+       (e_stt "b" "y" "setY"
           (e_uop Uminus (e_const (Int 42)))
           (e_bop Plus (e_var "x") (e_var "y"))))
 
@@ -1039,6 +1040,7 @@ let () =
           test_case "app" `Quick parse_app;
           test_case "let" `Quick parse_let;
           test_case "stt" `Quick parse_stt;
+          test_case "stt labeled" `Quick parse_stt_labeled;
           test_case "eff" `Quick parse_eff;
           test_case "seq" `Quick parse_seq;
           test_case "op" `Quick parse_op;
@@ -1095,8 +1097,8 @@ let () =
             `Quick set_in_effect_with_arg_step_two_times;
           test_case "Re-render 1 time when setter is called in useEffect (5)"
             `Quick set_passed_step_two_times;
-          test_case "Invalid phase when foreign setter is called in PInit" `Quick
-            set_passed_invalid_phase;
+          test_case "Invalid phase when foreign setter is called in PInit"
+            `Quick set_passed_invalid_phase;
           test_case
             "Inifinite re-renders when diverging setter is called in useEffect \
              (2)"

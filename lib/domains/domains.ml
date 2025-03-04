@@ -24,7 +24,7 @@ module type T = sig
     | Const of const
     | Addr of addr
     | Comp of Id.t
-    | View_spec of view_spec
+    | List_spec of view_spec list
     | Clos of clos
     | Set_clos of set_clos
     | Comp_spec of comp_spec
@@ -33,12 +33,18 @@ module type T = sig
 
   and view_spec =
     | Vs_const of const
-    | Vs_comp of comp_spec
+    | Vs_clos of clos
     | Vs_list of view_spec list
+    | Vs_comp of comp_spec
 
   type phase = P_init | P_succ | P_effect
   type decision = Idle | Retry | Update
-  type tree = Leaf of const | List of tree list | Path of path
+
+  type tree =
+    | T_const of const
+    | T_clos of clos
+    | T_list of tree list
+    | T_path of path
 
   type entry = {
     comp_spec : comp_spec;

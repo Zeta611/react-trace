@@ -171,8 +171,7 @@ let rec eval : type a. a Expr.t -> value =
       let env = perform Rd_env in
       Env.lookup env ~id
   | Comp c -> Comp c
-  | View es ->
-      View_spec (Vs_list (List.map es ~f:(fun e -> eval e |> vs_of_value_exn)))
+  | View es -> List_spec (List.map es ~f:(fun e -> eval e |> vs_of_value_exn))
   | Cond { pred; con; alt } ->
       let p = eval pred |> bool_of_value_exn in
       if p then eval con else eval alt
@@ -333,8 +332,9 @@ let mount_tree (path : Path.t) (t : tree) : unit =
 let rec render (vs : view_spec) : tree =
   Logger.render vs;
   match vs with
-  | Vs_const k -> Leaf k
-  | Vs_list vss -> List (List.map vss ~f:render)
+  | Vs_const k -> T_const k
+  | Vs_clos cl -> T_clos cl
+  | Vs_list vss -> T_list (List.map vss ~f:render)
   | Vs_comp comp_spec ->
       let path = perform Alloc_pt in
       let view =
@@ -343,7 +343,7 @@ let rec render (vs : view_spec) : tree =
           dec = Idle;
           st_store = St_store.empty;
           eff_q = Job_q.empty;
-          children = Leaf Unit;
+          children = T_const Unit;
         }
       in
       perform (Update_ent (path, view));
@@ -358,7 +358,7 @@ let rec render (vs : view_spec) : tree =
       let t = render vs in
       mount_tree path t;
       perform (Checkpoint { msg = "Rendered"; checkpoint = Render_finish path });
-      Path path
+      T_path path
 
 let rec update (path : Path.t) (arg : value) : bool =
   Logger.update path arg;
@@ -400,29 +400,29 @@ let rec update (path : Path.t) (arg : value) : bool =
 and reconcile (old_tree : tree) (vs : view_spec) : bool * tree =
   Logger.reconcile old_tree vs;
   match (old_tree, vs) with
-  | Leaf k, Vs_const k' when equal_const k k' -> (false, Leaf k)
-  | Path path, (Vs_comp { comp; arg } as vs) ->
+  | T_const k, Vs_const k' when equal_const k k' -> (false, T_const k)
+  | T_path path, (Vs_comp { comp; arg } as vs) ->
       let { comp_spec = { comp = comp'; _ }; _ } = perform (Lookup_ent path) in
-      if Id.(comp = comp') then (update path arg, Path path)
+      if Id.(comp = comp') then (update path arg, T_path path)
       else (true, render vs)
-  | List ts, Vs_list vss ->
+  | T_list ts, Vs_list vss ->
       let len_ts = List.length ts in
       let len_vs = List.length vss in
       let ts, vs =
         if len_ts < len_vs then
-          (ts @ List.init (len_vs - len_ts) ~f:(fun _ -> Leaf Unit), vss)
+          (ts @ List.init (len_vs - len_ts) ~f:(fun _ -> T_const Unit), vss)
         else (List.take ts len_vs, vss)
       in
       let updated, new_ts = List.map2_exn ts vs ~f:reconcile |> List.unzip in
-      (List.exists updated ~f:Fn.id, List new_ts)
+      (List.exists updated ~f:Fn.id, T_list new_ts)
   | _, vs -> (true, render vs)
 
 let rec visit (t : tree) : bool =
   Logger.visit t;
   match t with
-  | Leaf _ -> false
-  | List ts -> List.fold ts ~init:false ~f:(fun acc t -> visit t || acc)
-  | Path path ->
+  | T_const _ | T_clos _ -> false
+  | T_list ts -> List.fold ts ~init:false ~f:(fun acc t -> visit t || acc)
+  | T_path path ->
       let dec = perform (Get_dec path) in
       let updated =
         match dec with
@@ -439,9 +439,9 @@ let rec visit (t : tree) : bool =
 let rec commit_effs (t : tree) : unit =
   Logger.commit_effs t;
   match t with
-  | Leaf _ -> ()
-  | List ts -> List.iter ts ~f:commit_effs
-  | Path path ->
+  | T_const _ | T_clos _ -> ()
+  | T_list ts -> List.iter ts ~f:commit_effs
+  | T_path path ->
       let { children; _ } = perform (Lookup_ent path) in
       commit_effs children;
 
@@ -467,12 +467,24 @@ let rec collect : Prog.t -> Def_tab.t = function
 let step_prog (deftab : Def_tab.t) (top_exp : Expr.hook_free_t) : tree =
   Logger.step_prog deftab top_exp;
   let vs = top_exp |> eval |> vs_of_value_exn in
-  render vs
+  let t = render vs in
+  commit_effs t;
+  t
 
 let step_path (t : tree) : bool =
   Logger.step_path t;
-  commit_effs t;
-  visit t
+  let b = visit t in
+  if b then commit_effs t;
+  b
+
+let rec collect_handlers (t : tree) : clos list =
+  match t with
+  | T_const _ -> []
+  | T_clos cl -> [ cl ]
+  | T_list ts -> List.concat_map ts ~f:collect_handlers
+  | T_path path ->
+      let { children; _ } = perform (Lookup_ent path) in
+      collect_handlers children
 
 type 'recording run_info = {
   steps : int;

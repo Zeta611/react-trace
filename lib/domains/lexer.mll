@@ -82,6 +82,7 @@ rule read =
   | ','       { COMMA }
   | ';'       { SEMI }
   | ";;"      { SEMISEMI }
+  | "^"       { CARET }
   | eof       { EOF }
   | _         { raise (SyntaxError ("Unexpected char: " ^ lexeme lexbuf)) }
 
