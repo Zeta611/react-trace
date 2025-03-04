@@ -55,7 +55,21 @@ module Expr = struct
   type hook_full = private Hook_full
   type const = Unit | Bool of bool | Int of int | String of string
   type uop = Not | Uplus | Uminus
-  type bop = Eq | Lt | Gt | Ne | Le | Ge | And | Or | Plus | Minus | Times
+
+  type bop =
+    | Eq
+    | Lt
+    | Gt
+    | Ne
+    | Le
+    | Ge
+    | And
+    | Or
+    | Plus
+    | Minus
+    | Times
+    | Div
+    | Mod
 
   type 'a t = { desc : 'a desc; loc : Location.t }
 
@@ -173,6 +187,8 @@ module Expr = struct
     | Plus -> "+"
     | Minus -> "-"
     | Times -> "*"
+    | Div -> "/"
+    | Mod -> "mod"
 
   let rec sexp_of_t : type a. a t -> Sexp.t =
    fun { desc; _ } -> sexp_of_desc desc

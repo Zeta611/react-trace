@@ -347,12 +347,14 @@ let parse_seq () =
     (e_seq (e_var "a") (e_seq (e_var "b") (e_seq (e_var "c") (e_var "d"))))
 
 let parse_op () =
-  parse_expr_test "parse op" "not (+-a () <= 0 + -0) || true"
+  parse_expr_test "parse op" "not (+-a () <= 0 mod 10 + -0 / 10) || true"
     (e_bop Or
        (e_uop Not
           (e_bop Le
              (e_uop Uplus (e_uop Uminus (e_app (e_var "a") (e_const Unit))))
-             (e_bop Plus (e_const (Int 0)) (e_uop Uminus (e_const (Int 0))))))
+             (e_bop Plus
+                (e_bop Mod (e_const (Int 0)) (e_const (Int 10)))
+                (e_bop Div (e_uop Uminus (e_const (Int 0))) (e_const (Int 10))))))
        (e_const (Bool true)))
 
 let parse_obj () =

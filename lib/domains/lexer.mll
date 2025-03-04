@@ -4,15 +4,13 @@ open Parser
 
 exception SyntaxError of string
 
-(* TODO: Use String_dict *)
 let keywords =
-  let tbl : (string, token) Hashtbl.t = Hashtbl.create 10 in
-  let add_to_tbl (id, tok) = Hashtbl.add tbl id tok in
-  List.iter add_to_tbl
+  String_dict.of_alist_exn
     [
       ("true", TRUE);
       ("false", FALSE);
       ("not", NOT);
+      ("mod", MOD);
       ("fun", FUN);
       ("rec", REC);
       ("if", IF);
@@ -23,8 +21,7 @@ let keywords =
       ("in", IN);
       ("useEffect", EFF);
       ("print", PRINT);
-    ];
-  tbl
+    ]
 
 let unescape_string s =
   let rec loop s =
@@ -59,7 +56,7 @@ rule read =
   | newline   { new_line lexbuf; read lexbuf }
   | "()"      { UNIT }
   | int as n  { INT (int_of_string n) }
-  | id as s   { match Hashtbl.find_opt keywords s with Some s -> s | None -> ID s }
+  | id as s   { match String_dict.find keywords s with Some s -> s | None -> ID s }
   | comp as c   { COMP c }
   | str as s  { STRING (String.sub s 1 (String.length s - 2) |> unescape_string) }
   | "{}"      { RECORD }
@@ -77,8 +74,7 @@ rule read =
   | '+'       { PLUS }
   | '-'       { MINUS }
   | '*'       { TIMES }
-  (*| '/'       { DIV }*)
-  (*| '%'       { REM }*)
+  | '/'       { DIV }
   | '('       { LPAREN }
   | ')'       { RPAREN }
   | '['       { LBRACK }

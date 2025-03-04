@@ -12,9 +12,10 @@ depends: [
   "ocaml"
   "ocaml-base-compiler" {= "5.3.0"}
   "menhir"
-  "dune" {>= "3.15"}
+  "dune" {>= "3.17"}
   "base"
   "stdio"
+  "string_dict"
   "ppx_jane"
   "js_of_ocaml"
   "js_of_ocaml-ppx"
