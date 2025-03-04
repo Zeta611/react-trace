@@ -401,42 +401,33 @@ let parse_string () =
   parse_expr_test "parse string" "\"hello world\""
     (e_const (String "hello world"))
 
-let js_var () =
+let js_convert_test msg input expected =
   let open Syntax in
-  let js, _ = parse_js "x" in
+  let js, _ = parse_js input in
   let prog = Js_syntax.convert js in
   Alcotest.(check' (of_pp Sexp.pp_hum))
-    ~msg:"convert var" ~actual:(Prog.sexp_of_t prog)
-    ~expected:(parse_prog "x" |> Prog.sexp_of_t)
+    ~msg ~actual:(Prog.sexp_of_t prog)
+    ~expected:
+      (parse_prog expected |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
+
+let js_var () = js_convert_test "convert var" "x" "x"
 
 let js_fn () =
-  let open Syntax in
-  let js, _ = parse_js "let t = (function(x) {})" in
-  let prog = Js_syntax.convert js in
-  Alcotest.(check' (of_pp Sexp.pp_hum))
-    ~msg:"convert function" ~actual:(Prog.sexp_of_t prog)
-    ~expected:(parse_prog "let t = fun x -> () in ()" |> Prog.sexp_of_t)
+  js_convert_test "convert fn" "let t = (function(x) {})"
+    "let t = fun x -> () in ()"
+
+let js_arrow_fn () =
+  js_convert_test "convert arrow fn" "let t = (x) => x"
+    "let t = fun x -> x in ()"
 
 let js_rec () =
-  let open Syntax in
-  let js, _ = parse_js "let t = (function f(x) { return f(x); })" in
-  let prog = Js_syntax.convert js in
-  Alcotest.(check' (of_pp Sexp.pp_hum))
-    ~msg:"convert recursive function" ~actual:(Prog.sexp_of_t prog)
-    ~expected:
-      (parse_prog "let t = (rec f = fun x -> f x) in ()" |> Prog.sexp_of_t)
+  js_convert_test "convert rec" "let t = (function f(x) { return f(x); })"
+    "let t = (rec f = fun x -> f x) in ()"
 
 let js_while () =
-  let open Syntax in
-  let js, _ =
-    parse_js "let a = true; let b = (function(x){}); while (a) { b(0) }"
-  in
-  let prog = Js_syntax.convert js in
-  Alcotest.(check' (of_pp Sexp.pp_hum))
-    ~msg:"convert while" ~actual:(Prog.sexp_of_t prog)
-    ~expected:
-      (parse_prog
-         {|
+  js_convert_test "convert while"
+    "let a = true; let b = (function(x){}); while (a) { b(0) }"
+    {|
   let a = true in
   let b = (fun x -> ()) in
     (rec loop = fun x ->
@@ -464,8 +455,7 @@ let js_while () =
         loop ()
       else
         a1) ()
-|}
-      |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
+  |}
 
 let js_literal () =
   let open Syntax in
@@ -494,8 +484,7 @@ let js_op () =
 a || b; a && b; a ?? b;
 a === b; a !== b; a < b; a <= b; a > b; a >= b;
 a + b; a - b; a * b;
-void a; -a; +a; !a
-|}
+void a; -a; +a; !a|}
   in
   let prog = Js_syntax.convert js in
   Alcotest.(check' (of_pp Sexp.pp_hum))
@@ -508,8 +497,7 @@ void a; -a; +a; !a
 (let a''' = a in if a''' = () then b else a''');
 a = b; a <> b; a < b; a <= b; a > b; a >= b;
 a + b; a - b; a * b;
-(a; ()); -a; +a; not a
-|}
+(a; ()); -a; +a; not a|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_optcall () =
@@ -549,8 +537,7 @@ let js_pattern_object () =
 let q' = q in
 let x = q'["x"] in
 let y = q'["y"] in
-()
-|}
+()|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_pattern_array () =
@@ -566,8 +553,7 @@ let q' = q in
   let x = q'[0] in
   let y = q'[1] in
   let z = q'[3] in
-()
-|}
+()|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_pattern_nested () =
@@ -584,8 +570,7 @@ let x = q'["x"] in
 let y = x["y"] in
 let a = y[0] in
 let b = y[1] in
-()
-|}
+()|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_object () =
@@ -597,8 +582,7 @@ let js_object () =
     ~expected:
       (parse_prog
          {|
-let p = (let obj = {} in obj["y"] := 1; obj["z"] := 2; obj[3] := 4; obj) in p["y"]; p[1+2]
-|}
+let p = (let obj = {} in obj["y"] := 1; obj["z"] := 2; obj[3] := 4; obj) in p["y"]; p[1+2]|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_if_cpl_same () =
@@ -608,10 +592,11 @@ let js_if_cpl_same () =
   Alcotest.(check' (of_pp Sexp.pp_hum))
     ~msg:"convert conditional with same completion"
     ~actual:(Prog.sexp_of_t prog)
-    ~expected:(parse_prog {|
-if a then ()
-else ()
-|} |> Prog.sexp_of_t)
+    ~expected:
+      (parse_prog {|
+      if a then ()
+      else ()
+    |} |> Prog.sexp_of_t)
 
 let js_if_cpl_brk_brk () =
   let open Syntax in
@@ -623,9 +608,9 @@ let js_if_cpl_brk_brk () =
     ~expected:
       (parse_prog
          {|
-if a then (let obj1 = {} in obj1["tag"] := "BRK"; obj1["label"] := "brk:A"; obj1)
-else (let obj2 = {} in obj2["tag"] := "BRK"; obj2["label"] := "brk:B"; obj2)
-|}
+      if a then (let obj1 = {} in obj1["tag"] := "BRK"; obj1["label"] := "brk:A"; obj1)
+      else (let obj2 = {} in obj2["tag"] := "BRK"; obj2["label"] := "brk:B"; obj2)
+    |}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_if_cpl_brk_nrm () =
@@ -638,10 +623,65 @@ let js_if_cpl_brk_nrm () =
     ~expected:
       (parse_prog
          {|
-if a then (let obj1 = {} in obj1["tag"] := "BRK"; obj1["label"] := "brk:A"; obj1)
-else (b; let obj2 = {} in obj2["tag"] := "NRM"; obj2)
-|}
+      if a then (let obj1 = {} in obj1["tag"] := "BRK"; obj1["label"] := "brk:A"; obj1)
+      else (b; let obj2 = {} in obj2["tag"] := "NRM"; obj2)
+    |}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
+
+let js_component () =
+  js_convert_test "convert component" "function Comp(p) { return <></>; }"
+    {|let Comp p = view [()];; ()|}
+
+let js_let_component () =
+  js_convert_test "convert let component"
+    "let Comp = function(p) { return <></>; }" {|let Comp p = view [()];; ()|}
+
+let js_arrow_component () =
+  js_convert_test "convert arrow component"
+    "let Comp = (p) => { return <></>; }" {|let Comp p = view [()];; ()|}
+
+let js_use_state () =
+  js_convert_test "convert useState"
+    "function Comp(p) { let [s, setS] = useState(42); return s; }"
+    {|
+    let Comp p =
+      let (s, setS) = useState 42 in
+      s;;
+    ()|}
+
+let js_use_effect () =
+  js_convert_test "convert useEffect"
+    {|
+    function Comp(p) {
+      let [s, setS] = useState(42);
+      useEffect(() => {
+        setS(42)
+      });
+      return s;
+    }
+    |}
+    {|
+    let Comp p =
+      let (s, setS) = useState 42 in
+      useEffect (setS 42);
+      s;;
+    ()|}
+
+let js_use_effect_expr () =
+  js_convert_test "convert useEffect with expression"
+    {|
+    function Comp(p) {
+      let [s, setS] = useState(42);
+      useEffect(() => setS(s + 1));
+      return s;
+    }
+    |}
+    {|
+    let Comp p =
+      let (s, setS) = useState 42 in
+      useEffect (setS (s + 1));
+      s;;
+    ()|}
 
 let no_side_effect () =
   let prog =
@@ -1014,6 +1054,7 @@ let () =
         [
           test_case "var" `Quick js_var;
           test_case "function" `Quick js_fn;
+          test_case "arrow function" `Quick js_arrow_fn;
           test_case "recursive function" `Quick js_rec;
           test_case "while" `Quick js_while;
           test_case "literal" `Quick js_literal;
@@ -1030,6 +1071,13 @@ let () =
           test_case "if cpl break break" `Quick js_if_cpl_brk_brk;
           test_case "if cpl break normal" `Quick js_if_cpl_brk_nrm;
           test_case "if cpl same" `Quick js_if_cpl_same;
+          (* component tests *)
+          test_case "component" `Quick js_component;
+          test_case "let component" `Quick js_let_component;
+          test_case "arrow component" `Quick js_arrow_component;
+          test_case "useState" `Quick js_use_state;
+          test_case "useEffect" `Quick js_use_effect;
+          test_case "useEffect with expression" `Quick js_use_effect_expr;
         ] );
       ( "steps",
         [
