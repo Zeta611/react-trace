@@ -2,7 +2,21 @@ open! Base
 open React_trace
 open Lib_domains
 
-let fuel = 100
+let max_fuel = 100
+
+let run prog =
+  let open Interp in
+  let { steps; _ } =
+    run ~fuel:max_fuel ~recorder:(module Default_recorder) prog
+  in
+  steps
+
+let run_output prog =
+  let open Interp in
+  let { output; _ } =
+    run ~fuel:max_fuel ~recorder:(module Default_recorder) prog
+  in
+  output
 
 let parse_prog s =
   let lexbuf = Lexing.from_string s in
@@ -21,39 +35,78 @@ let parse_js s =
 let rec alpha_conv_expr_blind : type a.
     (string -> string) -> a Syntax.Expr.desc -> a Syntax.Expr.desc =
   let open Syntax.Expr in
-  fun bindings ->
-    let conv { desc; loc } =
-      { desc = alpha_conv_expr_blind bindings desc; loc }
-    in
-    function
+  let alpha_conv_expr_blind' bindings { desc; loc } =
+    { desc = alpha_conv_expr_blind bindings desc; loc }
+  in
+  fun bindings -> function
     | Const c -> Const c
     | Var x -> Var (bindings x)
-    | View es -> View (List.map es ~f:conv)
+    | Comp c -> Comp c
+    | View es -> View (List.map es ~f:(alpha_conv_expr_blind' bindings))
     | Cond { pred; con; alt } ->
-        Cond { pred = conv pred; con = conv con; alt = conv alt }
+        Cond
+          {
+            pred = alpha_conv_expr_blind' bindings pred;
+            con = alpha_conv_expr_blind' bindings con;
+            alt = alpha_conv_expr_blind' bindings alt;
+          }
     | Fn { self; param; body } ->
-        Fn { self = Option.map ~f:bindings self; param; body = conv body }
-    | App { fn; arg } -> App { fn = conv fn; arg = conv arg }
+        Fn
+          {
+            self = Option.map ~f:bindings self;
+            param;
+            body = alpha_conv_expr_blind' bindings body;
+          }
+    | App { fn; arg } ->
+        App
+          {
+            fn = alpha_conv_expr_blind' bindings fn;
+            arg = alpha_conv_expr_blind' bindings arg;
+          }
     | Let { id; bound; body } ->
-        Let { id = bindings id; bound = conv bound; body = conv body }
+        Let
+          {
+            id = bindings id;
+            bound = alpha_conv_expr_blind' bindings bound;
+            body = alpha_conv_expr_blind' bindings body;
+          }
     | Stt { stt; set; init; body; label } ->
         Stt
           {
             stt = bindings stt;
             set = bindings set;
-            init = conv init;
-            body = conv body;
+            init = alpha_conv_expr_blind' bindings init;
+            body = alpha_conv_expr_blind' bindings body;
             label = bindings (Int.to_string label) |> Int.of_string;
           }
-    | Eff e -> Eff (conv e)
-    | Seq (e1, e2) -> Seq (conv e1, conv e2)
+    | Eff e -> Eff (alpha_conv_expr_blind' bindings e)
+    | Seq (e1, e2) ->
+        Seq
+          ( alpha_conv_expr_blind' bindings e1,
+            alpha_conv_expr_blind' bindings e2 )
     | Bop { left; right; op } ->
-        Bop { left = conv left; right = conv right; op }
-    | Uop { arg; op } -> Uop { arg = conv arg; op }
+        Bop
+          {
+            left = alpha_conv_expr_blind' bindings left;
+            right = alpha_conv_expr_blind' bindings right;
+            op;
+          }
+    | Uop { arg; op } -> Uop { arg = alpha_conv_expr_blind' bindings arg; op }
     | Alloc -> Alloc
     | Set { obj; idx; value } ->
-        Set { obj = conv obj; idx = conv idx; value = conv value }
-    | Get { obj; idx } -> Get { obj = conv obj; idx = conv idx }
+        Set
+          {
+            obj = alpha_conv_expr_blind' bindings obj;
+            idx = alpha_conv_expr_blind' bindings idx;
+            value = alpha_conv_expr_blind' bindings value;
+          }
+    | Get { obj; idx } ->
+        Get
+          {
+            obj = alpha_conv_expr_blind' bindings obj;
+            idx = alpha_conv_expr_blind' bindings idx;
+          }
+    | Print e -> Print (alpha_conv_expr_blind' bindings e)
 
 let rec alpha_conv_expr : type a.
     (string -> string) -> a Syntax.Expr.t -> a Syntax.Expr.t -> a Syntax.Expr.t
@@ -63,119 +116,122 @@ let rec alpha_conv_expr : type a.
     let { desc = base_desc; _ } = base in
     let { desc = src_desc; loc } = src in
     let desc =
-      match (base_desc, src_desc) with
-      | Const _, Const _ -> src_desc
-      | Var _, Var x' -> Var (bindings x')
-      | View es, View es' ->
-          let len = List.length es in
-          let len' = List.length es' in
-          if len < len' then
-            let es'_front, es'_back = List.split_n es' len in
-            View
-              (List.map2_exn es es'_front ~f:(alpha_conv_expr bindings)
-              @ es'_back)
-          else if len > len' then
-            View
-              (List.map2_exn (List.take es len') es'
-                 ~f:(alpha_conv_expr bindings))
-          else View (List.map2_exn es es' ~f:(alpha_conv_expr bindings))
-      | Cond { pred; con; alt }, Cond { pred = pred'; con = con'; alt = alt' }
-        ->
-          Cond
-            {
-              pred = alpha_conv_expr bindings pred pred';
-              con = alpha_conv_expr bindings con con';
-              alt = alpha_conv_expr bindings alt alt';
-            }
-      | ( Fn { self = None; param; body },
-          Fn { self = None; param = param'; body = body' } ) ->
-          let bindings' x = if String.(x = param') then param else bindings x in
-          Fn { self = None; param; body = alpha_conv_expr bindings' body body' }
-      | ( Fn { self = Some self; param; body },
-          Fn { self = Some self'; param = param'; body = body' } ) ->
-          (* The function name is bound before the parameters according to js
-             semantics (ECMA-262 14th edition, p.347, "15.2.5 Runtime Semantics:
-             InstantiateOrdinaryFunctionExpression": "5. Perform !
-             funcEnv.CreateImmutableBinding(name, false)."). Thus param takes
-             precedence over self. *)
-          let bindings' x =
-            if String.(x = param') then param
-            else if String.(x = self') then self
-            else bindings x
-          in
-          Fn
-            {
-              self = Some self;
-              param;
-              body = alpha_conv_expr bindings' body body';
-            }
-      | App { fn; arg }, App { fn = fn'; arg = arg' } ->
-          App
-            {
-              fn = alpha_conv_expr bindings fn fn';
-              arg = alpha_conv_expr bindings arg arg';
-            }
-      | Let { id; bound; body }, Let { id = id'; bound = bound'; body = body' }
-        ->
-          let bindings' x = if String.(x = id') then id else bindings x in
-          Let
-            {
-              id;
-              bound = alpha_conv_expr bindings bound bound';
-              body = alpha_conv_expr bindings' body body';
-            }
-      | ( Stt { stt; set; init; body; label },
-          Stt
-            {
-              stt = stt';
-              set = set';
-              init = init';
-              body = body';
-              label = label';
-            } ) ->
-          let bindings' x =
-            if String.(x = stt') then stt
-            else if String.(x = set') then set
-            else if String.(x = Int.to_string label') then Int.to_string label
-            else bindings x
-          in
-          Stt
-            {
-              stt;
-              set;
-              init = alpha_conv_expr bindings init init';
-              body = alpha_conv_expr bindings' body body';
-              label;
-            }
-      | Eff e, Eff e' -> Eff (alpha_conv_expr bindings e e')
-      | Seq (e1, e2), Seq (e1', e2') ->
-          Seq (alpha_conv_expr bindings e1 e1', alpha_conv_expr bindings e2 e2')
-      | Bop { left; right; _ }, Bop { left = left'; right = right'; op = op' }
-        ->
-          Bop
-            {
-              left = alpha_conv_expr bindings left left';
-              right = alpha_conv_expr bindings right right';
-              op = op';
-            }
-      | Uop { arg; _ }, Uop { arg = arg'; op = op' } ->
-          Uop { arg = alpha_conv_expr bindings arg arg'; op = op' }
-      | Alloc, Alloc -> Alloc
-      | Set { obj; idx; value }, Set { obj = obj'; idx = idx'; value = value' }
-        ->
-          Set
-            {
-              obj = alpha_conv_expr bindings obj obj';
-              idx = alpha_conv_expr bindings idx idx';
-              value = alpha_conv_expr bindings value value';
-            }
-      | Get { obj; idx }, Get { obj = obj'; idx = idx' } ->
-          Get
-            {
-              obj = alpha_conv_expr bindings obj obj';
-              idx = alpha_conv_expr bindings idx idx';
-            }
-      | _, _ -> alpha_conv_expr_blind bindings src_desc
+      (match (base_desc, src_desc) with
+       | Const _, Const _ -> src_desc
+       | Var _, Var x' -> Var (bindings x')
+       | View es, View es' ->
+           let len = List.length es in
+           let len' = List.length es' in
+           if len < len' then
+             View
+               (List.map2_exn es (List.take es' len)
+                  ~f:(alpha_conv_expr bindings))
+           else if len > len' then
+             View
+               (List.map2_exn (List.take es len') es'
+                  ~f:(alpha_conv_expr bindings))
+           else View (List.map2_exn es es' ~f:(alpha_conv_expr bindings))
+       | Cond { pred; con; alt }, Cond { pred = pred'; con = con'; alt = alt' }
+         ->
+           Cond
+             {
+               pred = alpha_conv_expr bindings pred pred';
+               con = alpha_conv_expr bindings con con';
+               alt = alpha_conv_expr bindings alt alt';
+             }
+       | ( Fn { self = None; param; body },
+           Fn { self = None; param = param'; body = body' } ) ->
+           let bindings' x =
+             if String.(x = param') then param else bindings x
+           in
+           Fn
+             { self = None; param; body = alpha_conv_expr bindings' body body' }
+       | ( Fn { self = Some self; param; body },
+           Fn { self = Some self'; param = param'; body = body' } ) ->
+           (* The function name is bound before the parameters according to js
+              semantics (ECMA-262 14th edition, p.347, "15.2.5 Runtime
+              Semantics: InstantiateOrdinaryFunctionExpression": "5. Perform !
+              funcEnv.CreateImmutableBinding(name, false)."). Thus param takes
+              precedence over self. *)
+           let bindings' x =
+             if String.(x = param') then param
+             else if String.(x = self') then self
+             else bindings x
+           in
+           Fn
+             {
+               self = Some self;
+               param;
+               body = alpha_conv_expr bindings' body body';
+             }
+       | App { fn; arg }, App { fn = fn'; arg = arg' } ->
+           App
+             {
+               fn = alpha_conv_expr bindings fn fn';
+               arg = alpha_conv_expr bindings arg arg';
+             }
+       | Let { id; bound; body }, Let { id = id'; bound = bound'; body = body' }
+         ->
+           let bindings' x = if String.(x = id') then id else bindings x in
+           Let
+             {
+               id;
+               bound = alpha_conv_expr bindings bound bound';
+               body = alpha_conv_expr bindings' body body';
+             }
+       | ( Stt { stt; set; init; body; label },
+           Stt
+             {
+               stt = stt';
+               set = set';
+               init = init';
+               body = body';
+               label = label';
+             } ) ->
+           let bindings' x =
+             if String.(x = stt') then stt
+             else if String.(x = set') then set
+             else if String.(x = Int.to_string label') then Int.to_string label
+             else bindings x
+           in
+           Stt
+             {
+               stt;
+               set;
+               init = alpha_conv_expr bindings init init';
+               body = alpha_conv_expr bindings' body body';
+               label;
+             }
+       | Eff e, Eff e' -> Eff (alpha_conv_expr bindings e e')
+       | Seq (e1, e2), Seq (e1', e2') ->
+           Seq (alpha_conv_expr bindings e1 e1', alpha_conv_expr bindings e2 e2')
+       | Bop { left; right; _ }, Bop { left = left'; right = right'; op = op' }
+         ->
+           Bop
+             {
+               left = alpha_conv_expr bindings left left';
+               right = alpha_conv_expr bindings right right';
+               op = op';
+             }
+       | Uop { arg; _ }, Uop { arg = arg'; op = op' } ->
+           Uop { arg = alpha_conv_expr bindings arg arg'; op = op' }
+       | Alloc, Alloc -> Alloc
+       | Set { obj; idx; value }, Set { obj = obj'; idx = idx'; value = value' }
+         ->
+           Set
+             {
+               obj = alpha_conv_expr bindings obj obj';
+               idx = alpha_conv_expr bindings idx idx';
+               value = alpha_conv_expr bindings value value';
+             }
+       | Get { obj; idx }, Get { obj = obj'; idx = idx' } ->
+           Get
+             {
+               obj = alpha_conv_expr bindings obj obj';
+               idx = alpha_conv_expr bindings idx idx';
+             }
+       | _, _ -> alpha_conv_expr_blind bindings src_desc
+        : a desc)
     in
     { desc; loc }
 
@@ -345,33 +401,42 @@ let parse_string () =
   parse_expr_test "parse string" "\"hello world\""
     (e_const (String "hello world"))
 
-let js_convert_test msg input expected =
+let js_var () =
   let open Syntax in
-  let js, _ = parse_js input in
+  let js, _ = parse_js "x" in
   let prog = Js_syntax.convert js in
   Alcotest.(check' (of_pp Sexp.pp_hum))
-    ~msg ~actual:(Prog.sexp_of_t prog)
-    ~expected:
-      (parse_prog expected |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
-
-let js_var () = js_convert_test "convert var" "x" "x"
+    ~msg:"convert var" ~actual:(Prog.sexp_of_t prog)
+    ~expected:(parse_prog "x" |> Prog.sexp_of_t)
 
 let js_fn () =
-  js_convert_test "convert fn" "let t = (function(x) {})"
-    "let t = fun x -> () in ()"
-
-let js_arrow_fn () =
-  js_convert_test "convert arrow fn" "let t = (x) => x"
-    "let t = fun x -> x in ()"
+  let open Syntax in
+  let js, _ = parse_js "let t = (function(x) {})" in
+  let prog = Js_syntax.convert js in
+  Alcotest.(check' (of_pp Sexp.pp_hum))
+    ~msg:"convert function" ~actual:(Prog.sexp_of_t prog)
+    ~expected:(parse_prog "let t = fun x -> () in ()" |> Prog.sexp_of_t)
 
 let js_rec () =
-  js_convert_test "convert rec" "let t = (function f(x) { return f(x); })"
-    "let t = (rec f = fun x -> f x) in ()"
+  let open Syntax in
+  let js, _ = parse_js "let t = (function f(x) { return f(x); })" in
+  let prog = Js_syntax.convert js in
+  Alcotest.(check' (of_pp Sexp.pp_hum))
+    ~msg:"convert recursive function" ~actual:(Prog.sexp_of_t prog)
+    ~expected:
+      (parse_prog "let t = (rec f = fun x -> f x) in ()" |> Prog.sexp_of_t)
 
 let js_while () =
-  js_convert_test "convert while"
-    "let a = true; let b = (function(x){}); while (a) { b(0) }"
-    {|
+  let open Syntax in
+  let js, _ =
+    parse_js "let a = true; let b = (function(x){}); while (a) { b(0) }"
+  in
+  let prog = Js_syntax.convert js in
+  Alcotest.(check' (of_pp Sexp.pp_hum))
+    ~msg:"convert while" ~actual:(Prog.sexp_of_t prog)
+    ~expected:
+      (parse_prog
+         {|
   let a = true in
   let b = (fun x -> ()) in
     (rec loop = fun x ->
@@ -399,7 +464,8 @@ let js_while () =
         loop ()
       else
         a1) ()
-  |}
+|}
+      |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_literal () =
   let open Syntax in
@@ -428,7 +494,8 @@ let js_op () =
 a || b; a && b; a ?? b;
 a === b; a !== b; a < b; a <= b; a > b; a >= b;
 a + b; a - b; a * b;
-void a; -a; +a; !a|}
+void a; -a; +a; !a
+|}
   in
   let prog = Js_syntax.convert js in
   Alcotest.(check' (of_pp Sexp.pp_hum))
@@ -441,7 +508,8 @@ void a; -a; +a; !a|}
 (let a''' = a in if a''' = () then b else a''');
 a = b; a <> b; a < b; a <= b; a > b; a >= b;
 a + b; a - b; a * b;
-(a; ()); -a; +a; not a|}
+(a; ()); -a; +a; not a
+|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_optcall () =
@@ -481,7 +549,8 @@ let js_pattern_object () =
 let q' = q in
 let x = q'["x"] in
 let y = q'["y"] in
-()|}
+()
+|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_pattern_array () =
@@ -497,7 +566,8 @@ let q' = q in
   let x = q'[0] in
   let y = q'[1] in
   let z = q'[3] in
-()|}
+()
+|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_pattern_nested () =
@@ -514,7 +584,8 @@ let x = q'["x"] in
 let y = x["y"] in
 let a = y[0] in
 let b = y[1] in
-()|}
+()
+|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_object () =
@@ -526,7 +597,8 @@ let js_object () =
     ~expected:
       (parse_prog
          {|
-let p = (let obj = {} in obj["y"] := 1; obj["z"] := 2; obj[3] := 4; obj) in p["y"]; p[1+2]|}
+let p = (let obj = {} in obj["y"] := 1; obj["z"] := 2; obj[3] := 4; obj) in p["y"]; p[1+2]
+|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_if_cpl_same () =
@@ -536,11 +608,10 @@ let js_if_cpl_same () =
   Alcotest.(check' (of_pp Sexp.pp_hum))
     ~msg:"convert conditional with same completion"
     ~actual:(Prog.sexp_of_t prog)
-    ~expected:
-      (parse_prog {|
-      if a then ()
-      else ()
-    |} |> Prog.sexp_of_t)
+    ~expected:(parse_prog {|
+if a then ()
+else ()
+|} |> Prog.sexp_of_t)
 
 let js_if_cpl_brk_brk () =
   let open Syntax in
@@ -552,9 +623,9 @@ let js_if_cpl_brk_brk () =
     ~expected:
       (parse_prog
          {|
-      if a then (let obj1 = {} in obj1["tag"] := "BRK"; obj1["label"] := "brk:A"; obj1)
-      else (let obj2 = {} in obj2["tag"] := "BRK"; obj2["label"] := "brk:B"; obj2)
-    |}
+if a then (let obj1 = {} in obj1["tag"] := "BRK"; obj1["label"] := "brk:A"; obj1)
+else (let obj2 = {} in obj2["tag"] := "BRK"; obj2["label"] := "brk:B"; obj2)
+|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
 
 let js_if_cpl_brk_nrm () =
@@ -567,65 +638,10 @@ let js_if_cpl_brk_nrm () =
     ~expected:
       (parse_prog
          {|
-      if a then (let obj1 = {} in obj1["tag"] := "BRK"; obj1["label"] := "brk:A"; obj1)
-      else (b; let obj2 = {} in obj2["tag"] := "NRM"; obj2)
-    |}
+if a then (let obj1 = {} in obj1["tag"] := "BRK"; obj1["label"] := "brk:A"; obj1)
+else (b; let obj2 = {} in obj2["tag"] := "NRM"; obj2)
+|}
       |> alpha_conv_prog Fn.id prog |> Prog.sexp_of_t)
-
-let js_component () =
-  js_convert_test "convert component" "function Comp(p) { return <></>; }"
-    {|let Comp p = view [()];; ()|}
-
-let js_let_component () =
-  js_convert_test "convert let component"
-    "let Comp = function(p) { return <></>; }" {|let Comp p = view [()];; ()|}
-
-let js_arrow_component () =
-  js_convert_test "convert arrow component"
-    "let Comp = (p) => { return <></>; }" {|let Comp p = view [()];; ()|}
-
-let js_use_state () =
-  js_convert_test "convert useState"
-    "function Comp(p) { let [s, setS] = useState(42); return s; }"
-    {|
-    let Comp p =
-      let (s, setS) = useState 42 in
-      s;;
-    ()|}
-
-let js_use_effect () =
-  js_convert_test "convert useEffect"
-    {|
-    function Comp(p) {
-      let [s, setS] = useState(42);
-      useEffect(() => {
-        setS(42)
-      });
-      return s;
-    }
-    |}
-    {|
-    let Comp p =
-      let (s, setS) = useState 42 in
-      useEffect (setS 42);
-      s;;
-    ()|}
-
-let js_use_effect_expr () =
-  js_convert_test "convert useEffect with expression"
-    {|
-    function Comp(p) {
-      let [s, setS] = useState(42);
-      useEffect(() => setS(s + 1));
-      return s;
-    }
-    |}
-    {|
-    let Comp p =
-      let (s, setS) = useState 42 in
-      useEffect (setS (s + 1));
-      s;;
-    ()|}
 
 let no_side_effect () =
   let prog =
@@ -638,9 +654,7 @@ let C x =
 view [C ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step one time" ~expected:1 ~actual:steps
 
 let set_in_body_nonterminate () =
@@ -656,10 +670,7 @@ view [C ()]
 |}
   in
   let run () =
-    Interp.re_render_limit_h
-      (Interp.run ~fuel ~recorder:(module Default_recorder))
-      prog ~re_render_limit:25
-    |> ignore
+    Interp.re_render_limit_h run prog ~re_render_limit:25 |> ignore
   in
   Alcotest.(check_raises)
     "retry indefintely" Interp_effects.Too_many_re_renders run
@@ -676,9 +687,7 @@ let C x =
 view [C ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step one time" ~expected:1 ~actual:steps
 
 let set_in_effect_step_one_time () =
@@ -693,9 +702,7 @@ let C x =
 view [C ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step two times" ~expected:1 ~actual:steps
 
 let set_in_effect_step_two_times () =
@@ -710,9 +717,7 @@ let C x =
 view [C ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step two times" ~expected:2 ~actual:steps
 
 let set_in_effect_step_indefinitely () =
@@ -727,10 +732,8 @@ let C x =
 view [C ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
-  Alcotest.(check' int) ~msg:"step indefintely" ~expected:fuel ~actual:steps
+  let steps = run prog in
+  Alcotest.(check' int) ~msg:"step indefintely" ~expected:max_fuel ~actual:steps
 
 let set_in_effect_guarded_step_two_times () =
   let prog =
@@ -744,9 +747,7 @@ let C x =
 view [C ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step two times" ~expected:2 ~actual:steps
 
 let set_in_effect_guarded_step_n_times () =
@@ -761,9 +762,7 @@ let C x =
 view [C ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step five times" ~expected:5 ~actual:steps
 
 let set_in_effect_with_arg_step_one_time () =
@@ -778,9 +777,7 @@ let C x =
 view [C 42]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step one time" ~expected:1 ~actual:steps
 
 let set_in_effect_with_arg_step_two_times () =
@@ -795,9 +792,7 @@ let C x =
 view [C 0]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step two times" ~expected:2 ~actual:steps
 
 let set_passed_step_two_times () =
@@ -815,9 +810,7 @@ let D x =
 view [D ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step two times" ~expected:2 ~actual:steps
 
 let set_passed_step_indefinitely () =
@@ -835,10 +828,8 @@ let D x =
 view [D ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
-  Alcotest.(check' int) ~msg:"step indefintely" ~expected:fuel ~actual:steps
+  let steps = run prog in
+  Alcotest.(check' int) ~msg:"step indefintely" ~expected:max_fuel ~actual:steps
 
 let set_in_effect_twice_step_one_time () =
   let prog =
@@ -852,9 +843,7 @@ let C x =
 view [C ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step one time" ~expected:1 ~actual:steps
 
 let set_in_removed_child_step_two_times () =
@@ -877,9 +866,7 @@ let D x =
 view [D ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step two times" ~expected:2 ~actual:steps
 
 let state_persists_in_child () =
@@ -902,9 +889,7 @@ let D x =
 view [D ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step two times" ~expected:2 ~actual:steps
 
 let new_child_steps_again () =
@@ -914,7 +899,7 @@ let new_child_steps_again () =
 let C x =
   let (s, setS) = useState 42 in
   useEffect (setS (fun s -> 0));
-  view [()]
+  view [s]
 ;;
 let D x =
   let (s, setS) = useState true in
@@ -927,9 +912,7 @@ let D x =
 view [D ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step three times" ~expected:3 ~actual:steps
 
 let set_in_effect_guarded_step_n_times_with_obj () =
@@ -944,9 +927,7 @@ let C x =
 view [C ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step five times" ~expected:5 ~actual:steps
 
 let updating_obj_without_set_does_not_rerender () =
@@ -961,10 +942,47 @@ let C x =
 view [C ()]
 |}
   in
-  let { Interp.steps; _ } =
-    Interp.run ~fuel ~recorder:(module Default_recorder) prog
-  in
+  let steps = run prog in
   Alcotest.(check' int) ~msg:"step one time" ~expected:1 ~actual:steps
+
+let effect_queue_gets_flushed_on_retry () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  let (s, setS) = useState 0 in
+  print "C";
+  if s = 0 then setS (fun s -> s + 1);
+  useEffect (print "useEffect"; setS (fun s -> 42));
+  view [s]
+;;
+view [C ()]
+|}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"calls useEffect two times"
+    ~expected:"C\nC\nuseEffect\nC\nuseEffect\nC\n" ~actual:output
+
+let child_view_effect_runs_even_idle_but_parent_rerenders () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  useEffect (print "C");
+  view ["C"]
+;;
+let D _ =
+  let (x, setX) = useState 0 in
+  useEffect (setX (fun _ -> 42));
+  view [C 0]
+;;
+view [D ()]
+|}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"C gets printed two times" ~expected:"C\nC\n" ~actual:output
 
 let () =
   let open Alcotest in
@@ -996,7 +1014,6 @@ let () =
         [
           test_case "var" `Quick js_var;
           test_case "function" `Quick js_fn;
-          test_case "arrow function" `Quick js_arrow_fn;
           test_case "recursive function" `Quick js_rec;
           test_case "while" `Quick js_while;
           test_case "literal" `Quick js_literal;
@@ -1013,48 +1030,60 @@ let () =
           test_case "if cpl break break" `Quick js_if_cpl_brk_brk;
           test_case "if cpl break normal" `Quick js_if_cpl_brk_nrm;
           test_case "if cpl same" `Quick js_if_cpl_same;
-          (* component tests *)
-          test_case "component" `Quick js_component;
-          test_case "let component" `Quick js_let_component;
-          test_case "arrow component" `Quick js_arrow_component;
-          test_case "useState" `Quick js_use_state;
-          test_case "useEffect" `Quick js_use_effect;
-          test_case "useEffect with expression" `Quick js_use_effect_expr;
         ] );
       ( "steps",
         [
-          test_case "No side effect should step one time" `Quick no_side_effect;
-          test_case "Set in body should not terminate" `Quick
+          test_case "No re-render when side effect is absent" `Quick
+            no_side_effect;
+          test_case "Infinite retries when top-level setter is unguarded" `Quick
             set_in_body_nonterminate;
-          test_case "Guarded set in body should step one time" `Quick
+          test_case "No re-render when top-level setter is guarded" `Quick
             set_in_body_guarded;
-          test_case "Set in effect should step one time" `Quick
-            set_in_effect_step_one_time;
-          test_case "Set in effect should step two times" `Quick
-            set_in_effect_step_two_times;
-          test_case "Set in effect should step indefintely" `Quick
-            set_in_effect_step_indefinitely;
-          test_case "Guarded set in effect should step two times" `Quick
-            set_in_effect_guarded_step_two_times;
-          test_case "Guarded set in effect should step five times" `Quick
-            set_in_effect_guarded_step_n_times;
-          test_case "Set in effect with arg should step one time" `Quick
-            set_in_effect_with_arg_step_one_time;
-          test_case "Set in effect with arg should step two times" `Quick
-            set_in_effect_with_arg_step_two_times;
-          test_case "Set passed to child should step two times" `Quick
-            set_passed_step_two_times;
-          test_case "Set passed to child should step indefintely" `Quick
-            set_passed_step_indefinitely;
-          test_case "Set in effect twice should step one time" `Quick
-            set_in_effect_twice_step_one_time;
+          test_case
+            "No re-render when identity setter is called in useEffect (1)"
+            `Quick set_in_effect_step_one_time;
+          test_case "Re-render 1 time when setter is called in useEffect (1)"
+            `Quick set_in_effect_step_two_times;
+          test_case
+            "Inifinite re-renders when diverging setter is called in useEffect \
+             (1)"
+            `Quick set_in_effect_step_indefinitely;
+          test_case "Re-render 2 times when setter is called in useEffect (2)"
+            `Quick set_in_effect_guarded_step_two_times;
+          test_case "Re-render 5 times when setter is called in useEffect (3)"
+            `Quick set_in_effect_guarded_step_n_times;
+          test_case
+            "No re-render when identity setter is called in useEffect (2)"
+            `Quick set_in_effect_with_arg_step_one_time;
+          test_case "Re-render 1 time when setter is called in useEffect (4)"
+            `Quick set_in_effect_with_arg_step_two_times;
+          test_case "Re-render 1 time when setter is called in useEffect (5)"
+            `Quick set_passed_step_two_times;
+          test_case
+            "Inifinite re-renders when diverging setter is called in useEffect \
+             (2)"
+            `Quick set_passed_step_indefinitely;
+          test_case
+            "No re-render when setters compose to an identity are called in \
+             useEffect"
+            `Quick set_in_effect_twice_step_one_time;
+          (* TODO: This should probably be tested in the reconciliation suite *)
           test_case "Set in removed child should step two times" `Quick
             set_in_removed_child_step_two_times;
+          (* TODO: This should probably be tested in the reconciliation suite *)
           test_case "Same child gets persisted" `Quick state_persists_in_child;
+          (* TODO: This should probably be tested in the reconciliation suite *)
           test_case "New child steps again" `Quick new_child_steps_again;
-          test_case "Guarded set with obj in effect should step five times"
+          test_case "Re-render 5 times when setter is called in useEffect (6)"
             `Quick set_in_effect_guarded_step_n_times_with_obj;
-          test_case "Updating object without set should step one time" `Quick
+          test_case "No re-render when no setter is called in useEffect" `Quick
             updating_obj_without_set_does_not_rerender;
+        ] );
+      ( "side effects",
+        [
+          test_case "Flush effect queue on retry" `Quick
+            effect_queue_gets_flushed_on_retry;
+          test_case "Idle child's effects are run when parent re-renders" `Quick
+            child_view_effect_runs_even_idle_but_parent_rerenders;
         ] );
     ]

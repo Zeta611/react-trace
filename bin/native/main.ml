@@ -77,20 +77,25 @@ let () =
     else
       let steps =
         if !opt_report then (
-          let { Interp.steps; recording; _ } =
+          let { Interp.steps; recording; output; _ } =
             Interp.run ?fuel:!opt_fuel
               ~recorder:(module Report_box_recorder)
               prog
           in
           recording |> List.rev
           |> List.iter ~f:(fun (msg, box) ->
-                 Logs.info (fun m -> m "%s\n" msg);
-                 PrintBox_text.output Stdio.stdout box);
+                 Logs.info (fun m -> m "%s:\n" msg);
+                 PrintBox_text.output Stdio.stdout box;
+                 Out_channel.(
+                   output_char stdout '\n';
+                   flush stdout));
+          Out_channel.print_endline output;
           steps)
         else
-          let { Interp.steps; _ } =
+          let { Interp.steps; output; _ } =
             Interp.run ?fuel:!opt_fuel ~recorder:(module Default_recorder) prog
           in
+          Out_channel.print_endline output;
           steps
       in
       Out_channel.(

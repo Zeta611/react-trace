@@ -20,22 +20,21 @@ and recording = { checkpoints : entry list; log : string }
 [@@deriving yojson_of]
 
 let emp_recording = { checkpoints = []; log = "" }
-let leaf_null () : tree = { path = ""; name = "()"; children = [] }
 
-let leaf_int (i : int) : tree =
-  { path = ""; name = Int.to_string i; children = [] }
+let leaf : const -> tree = function
+  | Unit -> { path = ""; name = "()"; children = [] }
+  | Bool b -> { path = ""; name = Bool.to_string b; children = [] }
+  | Int i -> { path = ""; name = Int.to_string i; children = [] }
+  | String s -> { path = ""; name = s; children = [] }
 
 let rec tree : Concrete_domains.tree -> tree = function
-  | Leaf_null -> leaf_null ()
-  | Leaf_int i -> leaf_int i
+  | Leaf k -> leaf k
   | Path p -> path p
 
 and path (pt : Path.t) : tree =
   let { part_view; children } = perform (Lookup_ent pt) in
   let name =
-    match part_view with
-    | Root -> "Root"
-    | Node node -> node.comp_spec.comp.name
+    match part_view with Root -> "Root" | Node node -> node.comp_spec.comp
   in
   {
     path = pt |> Path.sexp_of_t |> Sexp.to_string;

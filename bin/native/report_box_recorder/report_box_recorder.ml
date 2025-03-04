@@ -20,13 +20,14 @@ let value (v : value) : B.t =
   sexp_of_value v |> Sexp.to_string |> trunc |> B.text
 
 let clos ({ param; _ } : clos) : B.t = "λ" ^ param ^ ".<body>" |> B.text
-let leaf_null () : B.t = B.text "()"
-let leaf_int (i : int) : B.t = B.int i
 
-let rec tree : tree -> B.t = function
-  | Leaf_null -> leaf_null ()
-  | Leaf_int i -> leaf_int i
-  | Path p -> path p
+let leaf : const -> B.t = function
+  | Unit -> B.text "()"
+  | Bool b -> B.bool b
+  | Int i -> B.int i
+  | String s -> B.text s
+
+let rec tree : tree -> B.t = function Leaf k -> leaf k | Path p -> path p
 
 and path (pt : Path.t) : B.t =
   let { part_view; children } = perform (Lookup_ent pt) in
@@ -35,9 +36,7 @@ and path (pt : Path.t) : B.t =
     | Root -> bold_text "•" |> align
     | Node { comp_spec = { comp; arg; _ }; dec; st_store; eff_q } ->
         let comp_spec_box =
-          B.(
-            hlist ~bars:false
-              [ bold_text (trunc comp.name); text " "; value arg ])
+          B.(hlist ~bars:false [ bold_text (trunc comp); text " "; value arg ])
           |> align
         in
         let dec_box =

@@ -102,6 +102,23 @@ let treemem treemem = function
             (Tree_mem.sexp_of_t treemem)
             Sexp.pp_hum (Path.sexp_of_t path) Sexp.pp_hum (sexp_of_entry ent))
 
+let deftab deftab = function
+  | `Ret ->
+      Logs.debug (fun m ->
+          m "deftab_h Ret [deftab: %a]" Sexp.pp_hum (Def_tab.sexp_of_t deftab))
+  | `Lookup_comp comp ->
+      Logs.debug (fun m ->
+          m "deftab_h Lookup_comp [deftab: %a, comp: %a]" Sexp.pp_hum
+            (Def_tab.sexp_of_t deftab) Sexp.pp_hum (Id.sexp_of_t comp))
+  | `Get_comp_env ->
+      Logs.debug (fun m ->
+          m "deftab_h Get_comp_env [deftab: %a]" Sexp.pp_hum
+            (Def_tab.sexp_of_t deftab))
+
+let io io = function
+  | `Ret -> Logs.debug (fun m -> m "io_h Ret [%s]" io)
+  | `Print s -> Logs.debug (fun m -> m "io_h Print [%s]" s)
+
 let eval expr =
   Logs.debug (fun m -> m "eval %a" Sexp.pp_hum (Expr.sexp_of_t expr))
 
@@ -123,8 +140,8 @@ let render path vss =
       m "render [path: %a, vss: %a]" Sexp.pp (Path.sexp_of_t path) Sexp.pp
         ([%sexp_of: view_spec list] vss))
 
-let render1 vs =
-  Logs.debug (fun m -> m "render1 [vs: %a]" Sexp.pp (sexp_of_view_spec vs))
+let render1 t =
+  Logs.debug (fun m -> m "render1 [tree: %a]" Sexp.pp (sexp_of_tree t))
 
 let update path =
   Logs.debug (fun m -> m "update [path: %a]" Sexp.pp (Path.sexp_of_t path))
@@ -155,8 +172,10 @@ let commit_effs1 t =
 let eval_top prog =
   Logs.debug (fun m -> m "eval_top %a" Sexp.pp_hum (Prog.sexp_of_t prog))
 
-let step_prog prog =
-  Logs.debug (fun m -> m "step_prog %a" Sexp.pp_hum (Prog.sexp_of_t prog))
+let step_prog deftab top_exp =
+  Logs.debug (fun m ->
+      m "step_prog %a %a" Sexp.pp_hum (Def_tab.sexp_of_t deftab) Sexp.pp_hum
+        (Expr.sexp_of_t top_exp))
 
 let step_path path =
   Logs.debug (fun m -> m "step_path %a" Sexp.pp_hum (Path.sexp_of_t path))

@@ -62,6 +62,7 @@ module Expr = struct
   and _ desc =
     | Const : const -> _ desc
     | Var : Id.t -> _ desc
+    | Comp : Id.t -> _ desc
     | View : hook_free t list -> _ desc
     | Cond : hook_free t desc_cond -> _ desc
     | Fn : hook_free t desc_fn -> _ desc
@@ -75,6 +76,7 @@ module Expr = struct
     | Alloc : _ desc
     | Get : hook_free t desc_get -> _ desc
     | Set : hook_free t desc_set -> _ desc
+    | Print : hook_free t -> _ desc
 
   and 'e desc_cond = { pred : 'e; con : 'e; alt : 'e }
   and 'body desc_fn = { self : Id.t option; param : Id.t; body : 'body }
@@ -115,6 +117,7 @@ module Expr = struct
         Some (mk (Seq (e1, e2)))
     | (Const _ as e)
     | (Var _ as e)
+    | (Comp _ as e)
     | (View _ as e)
     | (Cond _ as e)
     | (Fn _ as e)
@@ -123,7 +126,8 @@ module Expr = struct
     | (Uop _ as e)
     | (Alloc as e)
     | (Get _ as e)
-    | (Set _ as e) ->
+    | (Set _ as e)
+    | (Print _ as e) ->
         Some (mk e)
 
   let hook_free_exn e = Option.value_exn (hook_free e)
@@ -141,6 +145,7 @@ module Expr = struct
         mk (Seq (e1, e2))
     | (Const _ as e)
     | (Var _ as e)
+    | (Comp _ as e)
     | (View _ as e)
     | (Cond _ as e)
     | (Fn _ as e)
@@ -151,7 +156,8 @@ module Expr = struct
     | (Bop _ as e)
     | (Alloc as e)
     | (Get _ as e)
-    | (Set _ as e) ->
+    | (Set _ as e)
+    | (Print _ as e) ->
         mk e
 
   let x_loc_start (e : some_expr) : Lexing.position =
@@ -271,6 +277,7 @@ module Expr = struct
     | Const (Int i) -> Int.sexp_of_t i
     | Const (String s) -> String.sexp_of_t s
     | Var id -> Id.sexp_of_t id
+    | Comp c -> Id.sexp_of_t c
     | View es -> l (a "View" :: List.map ~f:sexp_of_t es)
     | Cond { pred; con; alt } ->
         l [ a "Cond"; sexp_of_t pred; sexp_of_t con; sexp_of_t alt ]
@@ -304,6 +311,7 @@ module Expr = struct
     | Get { obj; idx } -> l [ a "Get"; sexp_of_t obj; sexp_of_t idx ]
     | Set { obj; idx; value } ->
         l [ a "Set"; sexp_of_t obj; sexp_of_t idx; sexp_of_t value ]
+    | Print e -> l [ a "Print"; sexp_of_t e ]
 
   let sexp_of_hook_free_t = sexp_of_t
   let sexp_of_hook_full_t = sexp_of_t

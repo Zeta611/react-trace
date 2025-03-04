@@ -36,6 +36,13 @@ type _ eff +=
   | Lookup_ent : Path.t -> entry eff
   | Update_ent : Path.t * entry -> unit eff
 
+(* component definition table effects *)
+type _ eff += Lookup_comp : Id.t -> comp_def eff | Get_comp_env : Env.t eff
+
+(* I/O effects *)
+type _ eff += Print : string -> unit eff
+(*| Click : unit -> unit eff*)
+
 (* tree memory effects for instrumentation *)
 type _ eff += Get_root_pt : Path.t eff
 

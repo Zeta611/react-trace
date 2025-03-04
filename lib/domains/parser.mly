@@ -22,11 +22,11 @@ and label_stts_expr label = function
 
 %token UNIT TRUE FALSE
 %token <int> INT
-%token <string> ID
+%token <string> ID COMP
 %token <string> STRING
 %token RECORD ASSIGN
 %token VIEW
-%token FUN REC LET STT IN EFF
+%token FUN REC LET STT IN EFF PRINT
 %token IF THEN ELSE
 %token NOT EQ LT GT NE LE GE
 %token AND OR
@@ -38,7 +38,7 @@ and label_stts_expr label = function
 %nonassoc RARROW
 %nonassoc IN
 %right    SEMI
-%nonassoc EFF
+%nonassoc EFF PRINT
 %nonassoc THEN /* below ELSE (if ... then ...) */
 %nonassoc ELSE /* (if ... then ... else ...) */
 %nonassoc ASSIGN
@@ -64,7 +64,7 @@ comp_lst:
     | c = comp_expr; SEMISEMI; tl = comp_lst
       { Comp (c, tl) } ;
 comp_expr:
-    | LET; name = var; param = var; EQ; body = expr_ { { name; param; body = hook_full body } }
+    | LET; name = comp; param = var; EQ; body = expr_ { { name; param; body = hook_full body } }
 expr_:
     | apply { $1 }
     | mkexp(FUN; param = var; RARROW; body = expr_
@@ -82,6 +82,9 @@ expr_:
       { $1 }
     | mkexp(EFF; e = expr_
       { Eff (hook_free_exn e) })
+      { $1 }
+    | mkexp(PRINT; e = expr_
+      { Print (hook_free_exn e) })
       { $1 }
     | mkexp(VIEW; LBRACK; vss = separated_nonempty_list(COMMA, expr_); RBRACK
       { View (List.map hook_free_exn vss) })
@@ -137,7 +140,10 @@ atom:
     | mkexp(n = INT { Const (Int n) }) { $1 }
     | mkexp(s = STRING { Const (String s) }) { $1 }
     | mkexp(var = var { Var var }) { $1 }
+    | mkexp(c = comp { Comp c }) { $1 }
     | mkexp(RECORD { Alloc }) { $1 }
     | LPAREN; e = expr_; RPAREN { e }
 var:
     | x = ID { x }
+comp:
+    | c = COMP { c }
