@@ -7,7 +7,6 @@ exception Unbound_var of string
 exception Type_error
 exception Invalid_phase
 exception Unreachable
-exception Event_queue_not_empty
 
 (* path and phase effects *)
 type _ eff += Rd_pt : Path.t eff | Rd_ph : phase eff
@@ -31,6 +30,7 @@ type _ eff +=
   | Set_dec : Path.t * decision -> unit eff
   | Set_arg : Path.t * value -> unit eff
   | Enq_eff : Path.t * clos -> unit eff
+  | Flush_eff : Path.t -> unit eff
 
 (* tree memory effects in render *)
 type _ eff +=
@@ -42,11 +42,10 @@ type _ eff +=
 type _ eff += Lookup_comp : Id.t -> comp_def eff | Get_comp_env : Env.t eff
 
 (* I/O effects *)
-type _ eff +=
-  | Print : string -> unit eff
+type _ eff += Print : string -> unit eff
 
 (* event queue effects *)
-  | Listen : int option eff
+type _ eff += Listen : int option eff
 
 (* tree memory effects for instrumentation *)
 type _ eff += Get_root_pt : Path.t eff
@@ -57,6 +56,7 @@ type checkpoint =
   | Render_finish of Path.t
   | Render_cancel of Path.t
   | Effects_finish of Path.t
+  | Event of int
 
 type _ eff += Checkpoint : { msg : string; checkpoint : checkpoint } -> unit eff
 

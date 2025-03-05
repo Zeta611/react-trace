@@ -30,7 +30,6 @@ module M : Domains.S = struct
       | Comp of Id.t
       | Clos of clos
       | Set_clos of set_clos
-      | Clos_spec of clos
       | List_spec of view_spec list
       | Comp_spec of comp_spec
 
@@ -44,7 +43,9 @@ module M : Domains.S = struct
       | Vs_comp of comp_spec
     [@@deriving sexp_of]
 
-    type phase = P_init of path | P_succ of path | P_effect [@@deriving sexp_of]
+    type phase = P_init of path | P_succ of path | P_effect
+    [@@deriving sexp_of]
+
     type decision = Idle | Retry | Update [@@deriving sexp_of]
     type mode = M_react | M_eloop
 
@@ -171,6 +172,11 @@ module M : Domains.S = struct
       let eff_q = Job_q.enqueue eff_q clos in
       Map.set tree_mem ~key:path ~data:{ entry with eff_q }
 
+    let flush_eff tree_mem ~path =
+      let entry = Map.find_exn tree_mem path in
+      let eff_q = Job_q.empty in
+      Map.set tree_mem ~key:path ~data:{ entry with eff_q }
+
     let root_pt (tree_mem : t) =
       ignore tree_mem;
       0
@@ -207,12 +213,18 @@ module M : Domains.S = struct
 
     let to_bool = function Const (Bool b) -> Some b | _ -> None
     let to_int = function Const (Int i) -> Some i | _ -> None
-    let to_string = function Const (String s) -> Some s | _ -> None
+
+    let to_string = function
+      | Const (String s) -> Some s
+      | Const (Int i) -> Some (Int.to_string i)
+      | Const (Bool b) -> Some (Bool.to_string b)
+      | _ -> None
+
     let to_addr = function Addr l -> Some l | _ -> None
 
     let to_vs = function
       | Const k -> Some (Vs_const k)
-      | Clos_spec cl -> Some (Vs_clos cl)
+      | Clos cl -> Some (Vs_clos cl)
       | List_spec l -> Some (Vs_list l)
       | Comp_spec c -> Some (Vs_comp c)
       | _ -> None
@@ -232,7 +244,8 @@ module M : Domains.S = struct
   end
 
   module Phase = struct
-    type t = phase = P_init of path | P_succ of path | P_effect [@@deriving equal]
+    type t = phase = P_init of path | P_succ of path | P_effect
+    [@@deriving equal]
 
     let ( = ) = equal
     let ( <> ) p1 p2 = not (p1 = p2)

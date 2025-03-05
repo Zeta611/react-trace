@@ -21,7 +21,6 @@ let keywords =
       ("in", IN);
       ("useEffect", EFF);
       ("print", PRINT);
-      ("button", BUTTON);
     ]
 
 let unescape_string s =

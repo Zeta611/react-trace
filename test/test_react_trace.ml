@@ -7,21 +7,30 @@ let max_fuel = 100
 let run prog =
   let open Interp in
   let { steps; _ } =
-    run ~fuel:max_fuel ~recorder:(module Default_recorder) ~event_q_handler:(Default_event_q.event_h ~event_q:[]) prog
+    run ~fuel:max_fuel
+      ~recorder:(module Default_recorder)
+      ~event_q_handler:(Default_event_q.event_h ~event_q:[])
+      prog
   in
   steps
 
 let run_output prog =
   let open Interp in
   let { output; _ } =
-    run ~fuel:max_fuel ~recorder:(module Default_recorder) ~event_q_handler:(Default_event_q.event_h ~event_q:[]) prog
+    run ~fuel:max_fuel
+      ~recorder:(module Default_recorder)
+      ~event_q_handler:(Default_event_q.event_h ~event_q:[])
+      prog
   in
   output
 
 let run_event_output ~event_q prog =
   let open Interp in
   let { output; _ } =
-    run ~fuel:max_fuel ~recorder:(module Default_recorder) ~event_q_handler:(Default_event_q.event_h ~event_q) prog
+    run ~fuel:max_fuel
+      ~recorder:(module Default_recorder)
+      ~event_q_handler:(Default_event_q.event_h ~event_q)
+      prog
   in
   output
 
@@ -52,7 +61,6 @@ let rec alpha_conv_expr_blind : type a.
     | Const c -> Const c
     | Var x -> Var (bindings x)
     | Comp c -> Comp c
-    | Button e -> Button (subst e)
     | View es -> View (List.map es ~f:subst)
     | Cond { pred; con; alt } ->
         Cond { pred = subst pred; con = subst con; alt = subst alt }
@@ -267,9 +275,6 @@ let e_set obj idx value =
 let e_get obj idx = Syntax.Expr.{ desc = Get { obj; idx }; loc = Location.none }
 let e_alloc = Syntax.Expr.{ desc = Alloc; loc = Location.none }
 
-let e_button e =
-  Syntax.Expr.{ desc = Button e; loc = Location.none }
-
 let parse_expr_test msg input expected =
   let open Syntax in
   let (Ex expr) = parse_expr input in
@@ -389,10 +394,6 @@ let parse_indexing () =
 let parse_string () =
   parse_expr_test "parse string" "\"hello world\""
     (e_const (String "hello world"))
-
-let parse_button () =
-  parse_expr_test "parse button" "button 0"
-    (e_button (e_const (Int 0)))
 
 let js_convert_test msg input expected =
   let open Syntax in
@@ -1064,15 +1065,44 @@ let event_handler_prints () =
     parse_prog
       {|
 let C x =
-  button (print x)
+  [fun _ -> print "0", fun _ -> print "1"]
 ;;
-C "0"
+C ()
 |}
   in
-  let output = run_event_output ~event_q:[0] prog in
+  let output = run_event_output ~event_q:[ 0; 1 ] prog in
   Alcotest.(check' string)
-    ~msg:"event handler prints"
-    ~expected:"0\n" ~actual:output
+    ~msg:"event handler prints" ~expected:"0\n1\n" ~actual:output
+
+let counter_program =
+  parse_prog
+    {|
+  let C x =
+    let (s, setS) = useState 1 in
+    if (s > 3) then setS (fun _ -> 3);
+    if (s < 1) then setS (fun _ -> 1);
+    useEffect (print s);
+    [ fun _ -> setS (fun s -> s + 1),
+      fun _ -> setS (fun s -> s - 1),
+      s ]
+  ;;
+  C ()
+  |}
+
+let counter_test_1 () =
+  let output = run_event_output ~event_q:[ 0 ] counter_program in
+  Alcotest.(check' string) ~msg:"counter" ~expected:"1\n2\n" ~actual:output
+
+let counter_test_2 () =
+  let output = run_event_output ~event_q:[ 0; 1 ] counter_program in
+  Alcotest.(check' string) ~msg:"counter" ~expected:"1\n2\n1\n" ~actual:output
+
+let counter_test_3 () =
+  let output =
+    run_event_output ~event_q:[ 0; 0; 0; 0; 0; 1; 1; 1 ] counter_program
+  in
+  Alcotest.(check' string)
+    ~msg:"counter" ~expected:"1\n2\n3\n3\n3\n3\n2\n1\n1\n" ~actual:output
 
 let () =
   let open Alcotest in
@@ -1101,7 +1131,6 @@ let () =
           test_case "obj" `Quick parse_obj;
           test_case "indexing" `Quick parse_indexing;
           test_case "string" `Quick parse_string;
-          test_case "button" `Quick parse_button;
         ] );
       ( "convert",
         [
@@ -1190,5 +1219,8 @@ let () =
             child_view_effect_runs_even_idle_but_parent_rerenders;
           test_case "Nested view render order" `Quick nested_view_render_order;
           test_case "Event handler prints" `Quick event_handler_prints;
+          test_case "Counter Test 1" `Quick counter_test_1;
+          test_case "Counter Test 2" `Quick counter_test_2;
+          test_case "Counter Test 3" `Quick counter_test_3;
         ] );
     ]

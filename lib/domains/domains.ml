@@ -26,7 +26,6 @@ module type T = sig
     | Comp of Id.t
     | Clos of clos
     | Set_clos of set_clos
-    | Clos_spec of clos
     | List_spec of view_spec list
     | Comp_spec of comp_spec
 
@@ -158,6 +157,7 @@ module type Tree_mem = sig
   val set_dec : t -> path:path -> decision -> t
   val set_arg : t -> path:path -> value -> t
   val enq_eff : t -> path:path -> clos -> t
+  val flush_eff : t -> path:path -> t
   val alloc_pt : t -> path
   val lookup_ent : t -> path:path -> entry
   val update_ent : t -> path:path -> entry -> t

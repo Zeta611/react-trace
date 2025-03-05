@@ -5,17 +5,13 @@ open Concrete_domains
 
 let ph (ph : Phase.t) = function
   | `Ret ->
-      Logs.debug (fun m ->
-          m "ph_h Ret [ph: %a]"
-            Sexp.pp_hum (sexp_of_phase ph))
+      Logs.debug (fun m -> m "ph_h Ret [ph: %a]" Sexp.pp_hum (sexp_of_phase ph))
   | `Rd_pt ->
       Logs.debug (fun m ->
-          m "ph_h Rd_pt [ph: %a]"
-            Sexp.pp_hum (sexp_of_phase ph))
+          m "ph_h Rd_pt [ph: %a]" Sexp.pp_hum (sexp_of_phase ph))
   | `Rd_ph ->
       Logs.debug (fun m ->
-          m "ph_h Rd_ph [ph: %a]"
-            Sexp.pp_hum (sexp_of_phase ph))
+          m "ph_h Rd_ph [ph: %a]" Sexp.pp_hum (sexp_of_phase ph))
 
 let env env = function
   | `Ret ->
@@ -101,6 +97,11 @@ let treemem treemem = function
           m "treemem_h Update_ent [treemem: %a, path: %a, ent: %a]" Sexp.pp_hum
             (Tree_mem.sexp_of_t treemem)
             Sexp.pp_hum (Path.sexp_of_t path) Sexp.pp_hum (sexp_of_entry ent))
+  | `Flush_eff path ->
+      Logs.debug (fun m ->
+          m "treemem_h Flush_eff [treemem: %a, path: %a]" Sexp.pp_hum
+            (Tree_mem.sexp_of_t treemem)
+            Sexp.pp_hum (Path.sexp_of_t path))
 
 let deftab deftab = function
   | `Ret ->
@@ -120,8 +121,12 @@ let io io = function
   | `Print s -> Logs.debug (fun m -> m "io_h Print [%s]" s)
 
 let event event = function
-  | `Ret -> Logs.debug (fun m -> m "event_h Ret [%a]" Sexp.pp_hum ([%sexp_of: int list] event))
-  | `Listen -> Logs.debug (fun m -> m "event_h Listen [%a]" Sexp.pp_hum ([%sexp_of: int list] event))
+  | `Ret ->
+      Logs.debug (fun m ->
+          m "event_h Ret [%a]" Sexp.pp_hum ([%sexp_of: int list] event))
+  | `Listen ->
+      Logs.debug (fun m ->
+          m "event_h Listen [%a]" Sexp.pp_hum ([%sexp_of: int list] event))
 
 let eval expr =
   Logs.debug (fun m -> m "eval %a" Sexp.pp_hum (Expr.sexp_of_t expr))

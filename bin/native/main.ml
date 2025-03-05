@@ -39,6 +39,7 @@ let () =
   let opt_fuel = ref None in
   let opt_report = ref false in
   let opt_verbosity = ref Logs.Info in
+  let opt_event_q = ref [] in
 
   let usage_msg =
     "Usage : " ^ Filename.basename Sys.argv.(0) ^ " [-option] [filename] "
@@ -56,6 +57,11 @@ let () =
         Arg.Unit (fun _ -> opt_report := true),
         "Report the view trees" );
       ("-fuel", Arg.Int (fun n -> opt_fuel := Some n), "[fuel] Run with fuel");
+      ( "-events",
+        Arg.String
+          (fun s ->
+            opt_event_q := String.split ~on:',' s |> List.map ~f:Int.of_string),
+        "[events] Run with events (e.g. '0,1,1,0')" );
     ]
   in
   Arg.parse speclist (fun x -> filename := x) usage_msg;
@@ -79,6 +85,7 @@ let () =
         if !opt_report then (
           let { Interp.steps; recording; output; _ } =
             Interp.run ?fuel:!opt_fuel
+              ~event_q_handler:(Default_event_q.event_h ~event_q:!opt_event_q)
               ~recorder:(module Report_box_recorder)
               prog
           in
@@ -93,7 +100,10 @@ let () =
           steps)
         else
           let { Interp.steps; output; _ } =
-            Interp.run ?fuel:!opt_fuel ~recorder:(module Default_recorder) prog
+            Interp.run ?fuel:!opt_fuel
+              ~recorder:(module Default_recorder)
+              ~event_q_handler:(Default_event_q.event_h ~event_q:!opt_event_q)
+              prog
           in
           Out_channel.print_endline output;
           steps

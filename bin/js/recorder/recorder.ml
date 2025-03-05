@@ -14,7 +14,8 @@ let get_path_from_checkpoint = function
   | Render_finish pt
   | Render_cancel pt
   | Effects_finish pt ->
-      pt
+      Some pt
+  | Event _ -> None
 
 type tree = { path : string; name : string; children : tree list }
 and entry = { msg : string; tree : tree }
@@ -30,10 +31,14 @@ let leaf : const -> tree = function
   | Int i -> { path = ""; name = Int.to_string i; children = [] }
   | String s -> { path = ""; name = s; children = [] }
 
+let clos : clos -> tree = function
+  | _ -> { path = ""; name = "button"; children = [] }
+
 let rec tree : Concrete_domains.tree -> tree = function
-  | Leaf k -> leaf k
-  | List l -> list l
-  | Path p -> path p
+  | T_const k -> leaf k
+  | T_clos cl -> clos cl
+  | T_list l -> list l
+  | T_path p -> path p
 
 and list (ts : Concrete_domains.tree list) : tree =
   { path = ""; name = "..."; children = List.map ts ~f:tree }
@@ -58,7 +63,7 @@ let event_h (type a b) (f : a -> b) (x : a) :
             recording with
             log =
               recording.log
-              ^ Printf.sprintf "[path %s] Update state %d -> %s\n"
+              ^ Printf.sprintf "[path %s] Update state %s -> %s\n"
                   (Sexp.to_string (Path.sexp_of_t path))
                   label
                   (Sexp.to_string (sexp_of_value v));
@@ -109,7 +114,9 @@ let event_h (type a b) (f : a -> b) (x : a) :
       fun ~recording ->
         let pt = get_path_from_checkpoint checkpoint in
         let msg =
-          Printf.sprintf "[%s] %s" (Sexp.to_string (Path.sexp_of_t pt)) msg
+          Printf.sprintf "[%s] %s"
+            (Sexp.to_string ([%sexp_of: Path.t option] pt))
+            msg
         in
         let root = perform Get_root_pt in
         let tree = path root in

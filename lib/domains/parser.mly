@@ -31,7 +31,7 @@ and label_stts_expr label = function
 %token <string> ID COMP
 %token <string> STRING
 %token RECORD ASSIGN
-%token FUN REC LET STT IN EFF PRINT BUTTON
+%token FUN REC LET STT IN EFF PRINT
 %token IF THEN ELSE
 %token NOT EQ LT GT NE LE GE
 %token AND OR
@@ -94,9 +94,6 @@ expr_:
       { $1 }
     | mkexp(PRINT; e = expr_
       { Print (hook_free_exn e) })
-      { $1 }
-    | mkexp(BUTTON; e = expr_
-      { Button (hook_free_exn e) })
       { $1 }
     | mkexp(LBRACK; vss = separated_nonempty_list(COMMA, expr_); RBRACK
       { View (List.map hook_free_exn vss) })

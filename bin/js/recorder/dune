@@ -1,5 +1,5 @@
 (library
  (name recorder)
  (preprocess
-  (pps ppx_yojson_conv))
+  (pps ppx_yojson_conv ppx_jane))
  (libraries react_trace base))

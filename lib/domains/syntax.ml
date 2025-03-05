@@ -78,7 +78,6 @@ module Expr = struct
     | Var : Id.t -> _ desc
     | Comp : Id.t -> _ desc
     | View : hook_free t list -> _ desc
-    | Button : hook_free t -> _ desc
     | Cond : hook_free t desc_cond -> _ desc
     | Fn : hook_free t desc_fn -> _ desc
     | App : hook_free t desc_app -> _ desc
@@ -133,7 +132,6 @@ module Expr = struct
     | (Const _ as e)
     | (Var _ as e)
     | (Comp _ as e)
-    | (Button _ as e)
     | (View _ as e)
     | (Cond _ as e)
     | (Fn _ as e)
@@ -162,7 +160,6 @@ module Expr = struct
     | (Const _ as e)
     | (Var _ as e)
     | (Comp _ as e)
-    | (Button _ as e)
     | (View _ as e)
     | (Cond _ as e)
     | (Fn _ as e)
@@ -297,8 +294,6 @@ module Expr = struct
     | Const (String s) -> String.sexp_of_t s
     | Var id -> Id.sexp_of_t id
     | Comp c -> Id.sexp_of_t c
-    | Button e ->
-        l [ a "Button"; sexp_of_t e ]
     | View es -> l (a "View" :: List.map ~f:sexp_of_t es)
     | Cond { pred; con; alt } ->
         l [ a "Cond"; sexp_of_t pred; sexp_of_t con; sexp_of_t alt ]
