@@ -11,7 +11,6 @@ let keywords =
       ("false", FALSE);
       ("not", NOT);
       ("mod", MOD);
-      ("view", VIEW);
       ("fun", FUN);
       ("rec", REC);
       ("if", IF);
@@ -83,6 +82,7 @@ rule read =
   | ','       { COMMA }
   | ';'       { SEMI }
   | ";;"      { SEMISEMI }
+  | "^"       { CARET }
   | eof       { EOF }
   | _         { raise (SyntaxError ("Unexpected char: " ^ lexeme lexbuf)) }
 

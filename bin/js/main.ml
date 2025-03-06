@@ -33,6 +33,7 @@ let () =
           let Interp.{ recording; _ } =
             Interp.run
               ?fuel:(if fuel < 1 then None else Some fuel)
+              ~event_q_handler:(Default_event_q.event_h ~event_q:[])
               ~recorder:(module Recorder)
               prog
           in

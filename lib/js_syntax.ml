@@ -28,7 +28,7 @@ let fresh_label =
   fun () ->
     let n = !counter in
     Int.incr counter;
-    n
+    Int.to_string n
 
 let convert_bop (bop : Flow_ast.Expression.Binary.operator) : Syntax.Expr.bop =
   let open Syntax.Expr in

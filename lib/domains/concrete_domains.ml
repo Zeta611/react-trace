@@ -3,7 +3,7 @@ open Syntax
 
 module M : Domains.S = struct
   module rec T : (Domains.T with type path = int) = struct
-    type path = Path.t [@@deriving sexp_of]
+    type path = Path.t [@@deriving sexp_of, equal]
     type env = Env.t [@@deriving sexp_of]
     type addr = Addr.t [@@deriving sexp_of]
     type obj = Obj.t [@@deriving sexp_of]
@@ -28,33 +28,41 @@ module M : Domains.S = struct
       | Const of const
       | Addr of addr
       | Comp of Id.t
-      | View_spec of view_spec list
       | Clos of clos
       | Set_clos of set_clos
+      | List_spec of view_spec list
       | Comp_spec of comp_spec
 
     and set_clos = { label : Label.t; path : path }
     and comp_spec = { comp : Id.t; arg : value }
 
-    and view_spec = Vs_const of const | Vs_comp of comp_spec
+    and view_spec =
+      | Vs_const of const
+      | Vs_clos of clos
+      | Vs_list of view_spec list
+      | Vs_comp of comp_spec
     [@@deriving sexp_of]
 
-    type phase = P_init | P_succ | P_effect [@@deriving sexp_of]
+    type phase = P_init of path | P_succ of path | P_effect
+    [@@deriving sexp_of]
+
     type decision = Idle | Retry | Update [@@deriving sexp_of]
+    type mode = M_react | M_eloop
 
-    type part_view =
-      | Root
-      | Node of {
-          comp_spec : comp_spec;
-          dec : decision;
-          st_store : st_store;
-          eff_q : job_q;
-        }
+    type tree =
+      | T_const of const
+      | T_clos of clos
+      | T_list of tree list
+      | T_path of path
     [@@deriving sexp_of]
 
-    type tree = Leaf of const | Path of path [@@deriving sexp_of]
-
-    type entry = { part_view : part_view; children : tree Snoc_list.t }
+    type entry = {
+      comp_spec : comp_spec;
+      dec : decision;
+      st_store : st_store;
+      eff_q : job_q;
+      children : tree;
+    }
     [@@deriving sexp_of]
   end
 
@@ -138,52 +146,36 @@ module M : Domains.S = struct
 
     let lookup_st (tree_mem : t) ~(path : path) ~(label : Label.t) :
         value * job_q =
-      let { part_view; _ } = Map.find_exn tree_mem path in
-      match part_view with
-      | Root -> assert false
-      | Node { st_store; _ } -> St_store.lookup st_store ~label
+      let { st_store; _ } = Map.find_exn tree_mem path in
+      St_store.lookup st_store ~label
 
     let update_st tree_mem ~path ~label (v, q) =
-      let ({ part_view; _ } as entry) = Map.find_exn tree_mem path in
-      match part_view with
-      | Root -> assert false
-      | Node ({ st_store; _ } as n) ->
-          let st_store = St_store.update st_store ~label ~value:(v, q) in
-          Map.set tree_mem ~key:path
-            ~data:{ entry with part_view = Node { n with st_store } }
+      let ({ st_store; _ } as entry) = Map.find_exn tree_mem path in
+      let st_store = St_store.update st_store ~label ~value:(v, q) in
+      Map.set tree_mem ~key:path ~data:{ entry with st_store }
 
     let get_dec tree_mem ~path =
-      let { part_view; _ } = Map.find_exn tree_mem path in
-      match part_view with Root -> assert false | Node { dec; _ } -> dec
+      let { dec; _ } = Map.find_exn tree_mem path in
+      dec
 
     let set_dec tree_mem ~path dec =
-      let ({ part_view; _ } as entry) = Map.find_exn tree_mem path in
-      match part_view with
-      | Root -> assert false
-      | Node n ->
-          Map.set tree_mem ~key:path
-            ~data:{ entry with part_view = Node { n with dec } }
+      let entry = Map.find_exn tree_mem path in
+      Map.set tree_mem ~key:path ~data:{ entry with dec }
 
     let set_arg tree_mem ~path arg =
-      let ({ part_view; _ } as entry) = Map.find_exn tree_mem path in
-      match part_view with
-      | Root -> assert false
-      | Node n ->
-          Map.set tree_mem ~key:path
-            ~data:
-              {
-                entry with
-                part_view = Node { n with comp_spec = { n.comp_spec with arg } };
-              }
+      let ({ comp_spec; _ } as entry) = Map.find_exn tree_mem path in
+      Map.set tree_mem ~key:path
+        ~data:{ entry with comp_spec = { comp_spec with arg } }
 
     let enq_eff tree_mem ~path clos =
-      let ({ part_view; _ } as entry) = Map.find_exn tree_mem path in
-      match part_view with
-      | Root -> assert false
-      | Node ({ eff_q; _ } as n) ->
-          let eff_q = Job_q.enqueue eff_q clos in
-          Map.set tree_mem ~key:path
-            ~data:{ entry with part_view = Node { n with eff_q } }
+      let ({ eff_q; _ } as entry) = Map.find_exn tree_mem path in
+      let eff_q = Job_q.enqueue eff_q clos in
+      Map.set tree_mem ~key:path ~data:{ entry with eff_q }
+
+    let flush_eff tree_mem ~path =
+      let entry = Map.find_exn tree_mem path in
+      let eff_q = Job_q.empty in
+      Map.set tree_mem ~key:path ~data:{ entry with eff_q }
 
     let root_pt (tree_mem : t) =
       ignore tree_mem;
@@ -221,15 +213,22 @@ module M : Domains.S = struct
 
     let to_bool = function Const (Bool b) -> Some b | _ -> None
     let to_int = function Const (Int i) -> Some i | _ -> None
-    let to_string = function Const (String s) -> Some s | _ -> None
+
+    let to_string = function
+      | Const (String s) -> Some s
+      | Const (Int i) -> Some (Int.to_string i)
+      | Const (Bool b) -> Some (Bool.to_string b)
+      | _ -> None
+
     let to_addr = function Addr l -> Some l | _ -> None
 
     let to_vs = function
       | Const k -> Some (Vs_const k)
-      | Comp_spec t -> Some (Vs_comp t)
+      | Clos cl -> Some (Vs_clos cl)
+      | List_spec l -> Some (Vs_list l)
+      | Comp_spec c -> Some (Vs_comp c)
       | _ -> None
 
-    let to_vss = function View_spec vss -> Some vss | _ -> None
     let to_clos = function Clos c -> Some c | _ -> None
 
     let equal v1 v2 =
@@ -245,7 +244,8 @@ module M : Domains.S = struct
   end
 
   module Phase = struct
-    type t = phase = P_init | P_succ | P_effect [@@deriving equal]
+    type t = phase = P_init of path | P_succ of path | P_effect
+    [@@deriving equal]
 
     let ( = ) = equal
     let ( <> ) p1 p2 = not (p1 = p2)
@@ -256,6 +256,13 @@ module M : Domains.S = struct
 
     let ( = ) = equal
     let ( <> ) d1 d2 = not (d1 = d2)
+  end
+
+  module Mode = struct
+    type t = mode = M_react | M_eloop [@@deriving equal]
+
+    let ( = ) = equal
+    let ( <> ) m1 m2 = not (m1 = m2)
   end
 end
 

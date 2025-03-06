@@ -47,7 +47,7 @@ module Id = struct
 end
 
 module Label = struct
-  include Map_key (Int)
+  include Map_key (String)
 end
 
 module Expr = struct

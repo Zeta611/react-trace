@@ -3,19 +3,15 @@ open Lib_domains
 open Syntax
 open Concrete_domains
 
-let ptph ((pt, ph) : Path.t * Phase.t) = function
+let ph (ph : Phase.t) = function
   | `Ret ->
-      Logs.debug (fun m ->
-          m "ptph_h Ret [pt: %a, ph: %a]" Sexp.pp_hum (Path.sexp_of_t pt)
-            Sexp.pp_hum (sexp_of_phase ph))
+      Logs.debug (fun m -> m "ph_h Ret [ph: %a]" Sexp.pp_hum (sexp_of_phase ph))
   | `Rd_pt ->
       Logs.debug (fun m ->
-          m "ptph_h Rd_pt [pt: %a, ph: %a]" Sexp.pp_hum (Path.sexp_of_t pt)
-            Sexp.pp_hum (sexp_of_phase ph))
+          m "ph_h Rd_pt [ph: %a]" Sexp.pp_hum (sexp_of_phase ph))
   | `Rd_ph ->
       Logs.debug (fun m ->
-          m "ptph_h Rd_ph [pt: %a, ph: %a]" Sexp.pp_hum (Path.sexp_of_t pt)
-            Sexp.pp_hum (sexp_of_phase ph))
+          m "ph_h Rd_ph [ph: %a]" Sexp.pp_hum (sexp_of_phase ph))
 
 let env env = function
   | `Ret ->
@@ -101,6 +97,11 @@ let treemem treemem = function
           m "treemem_h Update_ent [treemem: %a, path: %a, ent: %a]" Sexp.pp_hum
             (Tree_mem.sexp_of_t treemem)
             Sexp.pp_hum (Path.sexp_of_t path) Sexp.pp_hum (sexp_of_entry ent))
+  | `Flush_eff path ->
+      Logs.debug (fun m ->
+          m "treemem_h Flush_eff [treemem: %a, path: %a]" Sexp.pp_hum
+            (Tree_mem.sexp_of_t treemem)
+            Sexp.pp_hum (Path.sexp_of_t path))
 
 let deftab deftab = function
   | `Ret ->
@@ -119,54 +120,41 @@ let io io = function
   | `Ret -> Logs.debug (fun m -> m "io_h Ret [%s]" io)
   | `Print s -> Logs.debug (fun m -> m "io_h Print [%s]" s)
 
+let event event = function
+  | `Ret ->
+      Logs.debug (fun m ->
+          m "event_h Ret [%a]" Sexp.pp_hum ([%sexp_of: int list] event))
+  | `Listen ->
+      Logs.debug (fun m ->
+          m "event_h Listen [%a]" Sexp.pp_hum ([%sexp_of: int list] event))
+
 let eval expr =
   Logs.debug (fun m -> m "eval %a" Sexp.pp_hum (Expr.sexp_of_t expr))
 
 let eval_mult expr =
   Logs.debug (fun m -> m "eval_mult %a" Sexp.pp_hum (Expr.sexp_of_t expr))
 
-let alloc_tree vs =
-  Logs.debug (fun m -> m "alloc_tree [vs: %a]" Sexp.pp (sexp_of_view_spec vs))
-
-let mount_tree path ?idx tree =
+let mount_tree path t =
   Logs.debug (fun m ->
-      m "mount_tree [path: %a, idx: %a, tree: %a]" Sexp.pp (Path.sexp_of_t path)
-        Sexp.pp
-        ([%sexp_of: int option] idx)
-        Sexp.pp (sexp_of_tree tree))
+      m "mount_tree [path: %a, t: %a]" Sexp.pp_hum (Path.sexp_of_t path)
+        Sexp.pp_hum (sexp_of_tree t))
 
-let render path vss =
+let render vs =
+  Logs.debug (fun m -> m "render [vs: %a]" Sexp.pp (sexp_of_view_spec vs))
+
+let update path arg =
   Logs.debug (fun m ->
-      m "render [path: %a, vss: %a]" Sexp.pp (Path.sexp_of_t path) Sexp.pp
-        ([%sexp_of: view_spec list] vss))
+      m "update [path: %a, arg: %a]" Sexp.pp (Path.sexp_of_t path) Sexp.pp
+        (sexp_of_value arg))
 
-let render1 t =
-  Logs.debug (fun m -> m "render1 [tree: %a]" Sexp.pp (sexp_of_tree t))
+let visit t = Logs.debug (fun m -> m "visit [t: %a]" Sexp.pp (sexp_of_tree t))
 
-let update path =
-  Logs.debug (fun m -> m "update [path: %a]" Sexp.pp (Path.sexp_of_t path))
-
-let update1 t =
-  Logs.debug (fun m -> m "update1 [t: %a]" Sexp.pp (sexp_of_tree t))
-
-let reconcile path old_trees vss =
+let reconcile old_tree vs =
   Logs.debug (fun m ->
-      m "reconcile [path: %a, old_trees: %a, vss: %a]" Sexp.pp
-        (Path.sexp_of_t path) Sexp.pp
-        ([%sexp_of: tree option list] old_trees)
-        Sexp.pp
-        ([%sexp_of: view_spec list] vss))
-
-let reconcile1 old_tree vs =
-  Logs.debug (fun m ->
-      m "reconcile1 [old_tree: %a, vs: %a]" Sexp.pp
-        ([%sexp_of: tree option] old_tree)
+      m "reconcile [old_tree: %a, vs: %a]" Sexp.pp (sexp_of_tree old_tree)
         Sexp.pp (sexp_of_view_spec vs))
 
-let commit_effs path =
-  Logs.debug (fun m -> m "commit_effs [path: %a]" Sexp.pp (Path.sexp_of_t path))
-
-let commit_effs1 t =
+let commit_effs t =
   Logs.debug (fun m -> m "commit_effs1 [t: %a]" Sexp.pp (sexp_of_tree t))
 
 let eval_top prog =
@@ -177,8 +165,11 @@ let step_prog deftab top_exp =
       m "step_prog %a %a" Sexp.pp_hum (Def_tab.sexp_of_t deftab) Sexp.pp_hum
         (Expr.sexp_of_t top_exp))
 
-let step_path path =
-  Logs.debug (fun m -> m "step_path %a" Sexp.pp_hum (Path.sexp_of_t path))
+let step_path t =
+  Logs.debug (fun m -> m "step_path %a" Sexp.pp_hum (sexp_of_tree t))
+
+let step_loop t =
+  Logs.debug (fun m -> m "step_loop %a" Sexp.pp_hum (sexp_of_tree t))
 
 let run prog =
   Logs.debug (fun m -> m "run %a" Sexp.pp_hum (Prog.sexp_of_t prog))

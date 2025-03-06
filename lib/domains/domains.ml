@@ -24,28 +24,36 @@ module type T = sig
     | Const of const
     | Addr of addr
     | Comp of Id.t
-    | View_spec of view_spec list
     | Clos of clos
     | Set_clos of set_clos
+    | List_spec of view_spec list
     | Comp_spec of comp_spec
 
   and comp_spec = { comp : Id.t; arg : value }
-  and view_spec = Vs_const of const | Vs_comp of comp_spec
 
-  type phase = P_init | P_succ | P_effect
+  and view_spec =
+    | Vs_const of const
+    | Vs_clos of clos
+    | Vs_list of view_spec list
+    | Vs_comp of comp_spec
+
+  type phase = P_init of path | P_succ of path | P_effect
   type decision = Idle | Retry | Update
+  type mode = M_react | M_eloop
 
-  type part_view =
-    | Root
-    | Node of {
-        comp_spec : comp_spec;
-        dec : decision;
-        st_store : st_store;
-        eff_q : job_q;
-      }
+  type tree =
+    | T_const of const
+    | T_clos of clos
+    | T_list of tree list
+    | T_path of path
 
-  type tree = Leaf of const | Path of path
-  type entry = { part_view : part_view; children : tree Snoc_list.t }
+  type entry = {
+    comp_spec : comp_spec;
+    dec : decision;
+    st_store : st_store;
+    eff_q : job_q;
+    children : tree;
+  }
 
   val sexp_of_clos : clos -> Sexp.t
   val sexp_of_set_clos : set_clos -> Sexp.t
@@ -56,12 +64,12 @@ module type T = sig
   val sexp_of_comp_def : comp_def -> Sexp.t
   val sexp_of_phase : phase -> Sexp.t
   val sexp_of_decision : decision -> Sexp.t
-  val sexp_of_part_view : part_view -> Sexp.t
   val sexp_of_tree : tree -> Sexp.t
   val sexp_of_entry : entry -> Sexp.t
   val sexp_of_addr : addr -> Sexp.t
   val sexp_of_obj : obj -> Sexp.t
   val equal_const : const -> const -> bool
+  val equal_path : path -> path -> bool
 end
 
 module type Path = sig
@@ -149,6 +157,7 @@ module type Tree_mem = sig
   val set_dec : t -> path:path -> decision -> t
   val set_arg : t -> path:path -> value -> t
   val enq_eff : t -> path:path -> clos -> t
+  val flush_eff : t -> path:path -> t
   val alloc_pt : t -> path
   val lookup_ent : t -> path:path -> entry
   val update_ent : t -> path:path -> entry -> t
@@ -178,7 +187,6 @@ module type Value = sig
   val to_string : t -> string option
   val to_addr : t -> addr option
   val to_vs : t -> view_spec option
-  val to_vss : t -> view_spec list option
   val to_clos : t -> clos option
   val equal : t -> t -> bool
   val ( = ) : t -> t -> bool
@@ -194,6 +202,14 @@ module type Phase = sig
 end
 
 module type Decision = sig
+  type t
+
+  val equal : t -> t -> bool
+  val ( = ) : t -> t -> bool
+  val ( <> ) : t -> t -> bool
+end
+
+module type Mode = sig
   type t
 
   val equal : t -> t -> bool
@@ -238,4 +254,5 @@ module type S = sig
 
   module Phase : Phase with type t = phase
   module Decision : Decision with type t = decision
+  module Mode : Mode with type t = mode
 end

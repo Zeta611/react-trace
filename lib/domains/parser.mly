@@ -15,8 +15,14 @@ let rec label_stts_prog = function
 
 and label_stts_expr label = function
   | { desc = Stt s; loc } ->
-      Expr.mk ~loc
-        (Stt { s with label; body = label_stts_expr (label + 1) s.body })
+      if Label.(s.label = "") then
+        Expr.mk ~loc
+          (Stt { s with
+            label = Int.to_string label;
+            body = label_stts_expr (label + 1) s.body })
+      else
+        Expr.mk ~loc
+          (Stt { s with body = label_stts_expr label s.body })
   | e -> e
 %}
 
@@ -25,7 +31,6 @@ and label_stts_expr label = function
 %token <string> ID COMP
 %token <string> STRING
 %token RECORD ASSIGN
-%token VIEW
 %token FUN REC LET STT IN EFF PRINT
 %token IF THEN ELSE
 %token NOT EQ LT GT NE LE GE
@@ -34,6 +39,7 @@ and label_stts_expr label = function
 %token LPAREN RPAREN LBRACK RBRACK
 %token RARROW COMMA SEMI SEMISEMI
 %token EOF
+%token CARET
 
 %nonassoc RARROW
 %nonassoc IN
@@ -78,7 +84,10 @@ expr_:
         Ex (mkexp ~loc:$sloc (Let { id; bound = hook_free_exn bound; body }))
       }
     | mkexp(LET; LPAREN; stt = var; COMMA; set = var; RPAREN; EQ; STT; init = expr_; IN; body = expr_
-      { Stt { label = -1; stt; set; init = hook_free_exn init; body = hook_full body } })
+      { Stt { label = ""; stt; set; init = hook_free_exn init; body = hook_full body } })
+      { $1 }
+    | mkexp(LET; LPAREN; stt = var; COMMA; set = var; RPAREN; EQ; STT; CARET; label = var; init = expr_; IN; body = expr_
+      { Stt { label; stt; set; init = hook_free_exn init; body = hook_full body } })
       { $1 }
     | mkexp(EFF; e = expr_
       { Eff (hook_free_exn e) })
@@ -86,7 +95,7 @@ expr_:
     | mkexp(PRINT; e = expr_
       { Print (hook_free_exn e) })
       { $1 }
-    | mkexp(VIEW; LBRACK; vss = separated_nonempty_list(COMMA, expr_); RBRACK
+    | mkexp(LBRACK; vss = separated_nonempty_list(COMMA, expr_); RBRACK
       { View (List.map hook_free_exn vss) })
       { $1 }
     | mkexp(IF; pred = expr_; THEN; con = expr_; ELSE; alt = expr_

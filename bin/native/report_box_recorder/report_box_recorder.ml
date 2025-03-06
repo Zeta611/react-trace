@@ -27,44 +27,44 @@ let leaf : const -> B.t = function
   | Int i -> B.int i
   | String s -> B.text s
 
-let rec tree : tree -> B.t = function Leaf k -> leaf k | Path p -> path p
+let rec tree : tree -> B.t = function
+  | T_const k -> leaf k
+  | T_clos cl -> clos cl
+  | T_list l -> list l
+  | T_path p -> path p
+
+and list (ts : tree list) : B.t = B.hlist_map (fun t -> tree t |> align) ts
 
 and path (pt : Path.t) : B.t =
-  let { part_view; children } = perform (Lookup_ent pt) in
-  let part_view_box =
-    match part_view with
-    | Root -> bold_text "•" |> align
-    | Node { comp_spec = { comp; arg; _ }; dec; st_store; eff_q } ->
-        let comp_spec_box =
-          B.(hlist ~bars:false [ bold_text (trunc comp); text " "; value arg ])
-          |> align
-        in
-        let dec_box =
-          let dec = sexp_of_decision dec |> Sexp.to_string in
-          B.(hlist_map text [ "dec"; dec ])
-        in
-        let stt_box =
-          let st_trees =
-            let st_store = St_store.to_alist st_store in
-            List.map st_store ~f:(fun (lbl, (value, job_q)) ->
-                let lbl = Int.to_string lbl in
-                let value = Sexp.to_string (sexp_of_value value) in
-                let job_q = Job_q.to_list job_q |> List.map ~f:clos in
+  let { comp_spec = { comp; arg; _ }; dec; st_store; eff_q; children } =
+    perform (Lookup_ent pt)
+  in
+  let comp_spec_box =
+    B.(hlist ~bars:false [ bold_text (trunc comp); text " "; value arg ])
+    |> align
+  in
+  let dec_box =
+    let dec = sexp_of_decision dec |> Sexp.to_string in
+    B.(hlist_map text [ "dec"; dec ])
+  in
+  let stt_box =
+    let st_trees =
+      let st_store = St_store.to_alist st_store in
+      List.map st_store ~f:(fun (lbl, (value, job_q)) ->
+          let value = Sexp.to_string (sexp_of_value value) in
+          let job_q = Job_q.to_list job_q |> List.map ~f:clos in
 
-                B.(tree (text (lbl ^ " ↦ " ^ value)) job_q))
-            |> B.vlist
-          in
-          B.(hlist [ text "stt"; st_trees ])
-        in
-        let eff_box =
-          let eff_q = Job_q.to_list eff_q |> List.map ~f:clos in
-          B.(hlist [ text "eff"; vlist eff_q ])
-        in
-        B.vlist [ comp_spec_box; dec_box; stt_box; eff_box ]
+          B.(tree (text (lbl ^ " ↦ " ^ value)) job_q))
+      |> B.vlist
+    in
+    B.(hlist [ text "stt"; st_trees ])
   in
-  let children =
-    Snoc_list.to_list children |> B.hlist_map (fun t -> tree t |> align)
+  let eff_box =
+    let eff_q = Job_q.to_list eff_q |> List.map ~f:clos in
+    B.(hlist [ text "eff"; vlist eff_q ])
   in
+  let part_view_box = B.vlist [ comp_spec_box; dec_box; stt_box; eff_box ] in
+  let children = tree children in
   B.(vlist [ part_view_box; children ] |> frame)
 
 let emp_recording = []
