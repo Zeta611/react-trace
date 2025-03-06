@@ -1104,6 +1104,79 @@ let counter_test_3 () =
   Alcotest.(check' string)
     ~msg:"counter" ~expected:"1\n2\n3\n3\n3\n3\n2\n1\n1\n" ~actual:output
 
+let call_setter_in_setter () =
+  let prog =
+    parse_prog
+      {|
+let App _ =
+  print("start App()");
+  let (data, setData) = useState(
+    print("start init data");
+    print("end init data: 0");
+    0
+  ) in
+  useEffect(
+    print("start effect");
+    print("end effect")
+  );
+  print("end App()");
+  [
+    fun _ -> (
+      print("start onClick");
+      setData(fun d -> (
+        print("start set1: d =");
+        print(d);
+        setData(fun d -> (
+          print("start set2: d =");
+          print(d);
+          print("end set2: return");
+          print(d - 1);
+          d - 1
+        ));
+        print("end set1: return");
+        print(d + 1);
+        d + 1
+      ));
+      print("end onClick")
+    ),
+    data
+  ]
+;;
+App ()
+  |} in
+  let output = run_event_output ~event_q:[ 0 ] prog in
+  Alcotest.(check' string)
+    ~msg:"call setter in setter"
+    ~expected:
+      {|start App()
+start init data
+end init data: 0
+end App()
+start effect
+end effect
+start onClick
+end onClick
+start App()
+start set1: d =
+0
+end set1: return
+1
+end App()
+start effect
+end effect
+start App()
+start set2: d =
+1
+end set2: return
+0
+end App()
+start effect
+end effect
+start App()
+end App()
+|}
+    ~actual:output
+
 let () =
   let open Alcotest in
   run "Interpreter"
@@ -1222,5 +1295,6 @@ let () =
           test_case "Counter Test 1" `Quick counter_test_1;
           test_case "Counter Test 2" `Quick counter_test_2;
           test_case "Counter Test 3" `Quick counter_test_3;
+          test_case "Call setter in setter" `Quick call_setter_in_setter;
         ] );
     ]

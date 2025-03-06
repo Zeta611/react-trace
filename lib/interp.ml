@@ -228,6 +228,7 @@ let rec eval : type a. a Expr.t -> value =
           perform (In_env env) eval body
       | P_succ _ ->
           let v_old, q = perform (Lookup_st (path, label)) in
+          perform (Update_st (path, label, (v_old, Job_q.empty)));
           (* Run the setting thunks in the set queue *)
           let v =
             Job_q.fold q ~init:v_old ~f:(fun value clos ->
@@ -242,7 +243,8 @@ let rec eval : type a. a Expr.t -> value =
             |> Env.extend ~id:set ~value:(Set_clos { label; path })
           in
           if Value.(v_old <> v) then perform (Set_dec (path, Update));
-          perform (Update_st (path, label, (v, Job_q.empty)));
+          let _, q = perform (Lookup_st (path, label)) in
+          perform (Update_st (path, label, (v, q)));
           perform (In_env env) eval body
       | P_effect -> raise Invalid_phase)
   | Eff e ->
