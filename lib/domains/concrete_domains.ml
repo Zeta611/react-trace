@@ -43,7 +43,7 @@ module M : Domains.S = struct
       | Vs_comp of comp_spec
     [@@deriving sexp_of]
 
-    type phase = P_init of path | P_succ of path | P_effect
+    type phase = P_init of path | P_succ of path | P_normal
     [@@deriving sexp_of]
 
     type decision = Idle | Retry | Update [@@deriving sexp_of]
@@ -56,7 +56,7 @@ module M : Domains.S = struct
       | T_path of path
     [@@deriving sexp_of]
 
-    type entry = {
+    type view = {
       comp_spec : comp_spec;
       dec : decision;
       st_store : st_store;
@@ -131,14 +131,14 @@ module M : Domains.S = struct
        and type job_q = T.job_q
        and type decision = T.decision
        and type clos = T.clos
-       and type entry = T.entry = struct
+       and type view = T.view = struct
     type value = T.value [@@deriving sexp_of]
     type path = Path.t [@@deriving sexp_of]
     type job_q = Job_q.t [@@deriving sexp_of]
     type decision = T.decision [@@deriving sexp_of]
     type clos = T.clos [@@deriving sexp_of]
-    type entry = T.entry [@@deriving sexp_of]
-    type t = entry Map.M(Path).t [@@deriving sexp_of]
+    type view = T.view [@@deriving sexp_of]
+    type t = view Map.M(Path).t [@@deriving sexp_of]
 
     let empty = Map.empty (module Path)
 
@@ -150,43 +150,39 @@ module M : Domains.S = struct
       St_store.lookup st_store ~label
 
     let update_st tree_mem ~path ~label (v, q) =
-      let ({ st_store; _ } as entry) = Map.find_exn tree_mem path in
+      let ({ st_store; _ } as view) = Map.find_exn tree_mem path in
       let st_store = St_store.update st_store ~label ~value:(v, q) in
-      Map.set tree_mem ~key:path ~data:{ entry with st_store }
+      Map.set tree_mem ~key:path ~data:{ view with st_store }
 
     let get_dec tree_mem ~path =
       let { dec; _ } = Map.find_exn tree_mem path in
       dec
 
     let set_dec tree_mem ~path dec =
-      let entry = Map.find_exn tree_mem path in
-      Map.set tree_mem ~key:path ~data:{ entry with dec }
+      let view = Map.find_exn tree_mem path in
+      Map.set tree_mem ~key:path ~data:{ view with dec }
 
     let set_arg tree_mem ~path arg =
-      let ({ comp_spec; _ } as entry) = Map.find_exn tree_mem path in
+      let ({ comp_spec; _ } as view) = Map.find_exn tree_mem path in
       Map.set tree_mem ~key:path
-        ~data:{ entry with comp_spec = { comp_spec with arg } }
-
-    let enq_eff tree_mem ~path clos =
-      let ({ eff_q; _ } as entry) = Map.find_exn tree_mem path in
-      let eff_q = Job_q.enqueue eff_q clos in
-      Map.set tree_mem ~key:path ~data:{ entry with eff_q }
+        ~data:{ view with comp_spec = { comp_spec with arg } }
 
     let flush_eff tree_mem ~path =
-      let entry = Map.find_exn tree_mem path in
+      let view = Map.find_exn tree_mem path in
       let eff_q = Job_q.empty in
-      Map.set tree_mem ~key:path ~data:{ entry with eff_q }
+      Map.set tree_mem ~key:path ~data:{ view with eff_q }
 
     let root_pt (tree_mem : t) =
       ignore tree_mem;
       0
 
     let alloc_pt = Map.length
-    let lookup_ent tree_mem ~path = Map.find_exn tree_mem path
+    let lookup_view tree_mem ~path = Map.find_exn tree_mem path
 
-    let update_ent tree_mem ~path ent =
-      Logs.debug (fun m -> m "update_ent: %a" Sexp.pp_hum (Path.sexp_of_t path));
-      Map.set tree_mem ~key:path ~data:ent
+    let update_view tree_mem ~path view =
+      Logs.debug (fun m ->
+          m "update_view: %a" Sexp.pp_hum (Path.sexp_of_t path));
+      Map.set tree_mem ~key:path ~data:view
   end
 
   module Def_tab :
@@ -244,7 +240,7 @@ module M : Domains.S = struct
   end
 
   module Phase = struct
-    type t = phase = P_init of path | P_succ of path | P_effect
+    type t = phase = P_init of path | P_succ of path | P_normal
     [@@deriving equal]
 
     let ( = ) = equal

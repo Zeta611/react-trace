@@ -5,6 +5,6 @@ let Counter _ =
     setNumber (fun n -> n + 1);
     setNumber (fun _ -> 42)
   );
-  view [number]
+  number
 ;;
-view [Counter ()]
+Counter ()

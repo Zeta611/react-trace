@@ -22,21 +22,28 @@ type _ eff +=
   | Lookup_addr : Addr.t -> obj eff
   | Update_addr : Addr.t * obj -> unit eff
 
+(* view effects in eval/eval_mult *)
+type _ eff +=
+  | View_lookup_st : Label.t -> (value * Job_q.t) eff
+  | View_update_st : (Label.t * (value * Job_q.t)) -> unit eff
+  | View_get_dec : decision eff
+  | View_set_dec : decision -> unit eff
+  | View_enq_eff : clos -> unit eff
+  | View_flush_eff : unit eff
+
 (* tree memory effects in eval/eval_mult *)
 type _ eff +=
-  | Lookup_st : Path.t * Label.t -> (value * Job_q.t) eff
-  | Update_st : (Path.t * Label.t * (value * Job_q.t)) -> unit eff
-  | Get_dec : Path.t -> decision eff
-  | Set_dec : Path.t * decision -> unit eff
-  | Set_arg : Path.t * value -> unit eff
-  | Enq_eff : Path.t * clos -> unit eff
-  | Flush_eff : Path.t -> unit eff
+  | Tree_lookup_st : Path.t * Label.t -> (value * Job_q.t) eff
+  | Tree_update_st : (Path.t * Label.t * (value * Job_q.t)) -> unit eff
+  | Tree_get_dec : Path.t -> decision eff
+  | Tree_set_dec : Path.t * decision -> unit eff
+  | Tree_flush_eff : Path.t -> unit eff
 
 (* tree memory effects in render *)
 type _ eff +=
   | Alloc_pt : Path.t eff
-  | Lookup_ent : Path.t -> entry eff
-  | Update_ent : Path.t * entry -> unit eff
+  | Lookup_view : Path.t -> view eff
+  | Update_view : Path.t * view -> unit eff
 
 (* component definition table effects *)
 type _ eff += Lookup_comp : Id.t -> comp_def eff | Get_comp_env : Env.t eff

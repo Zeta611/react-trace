@@ -37,7 +37,7 @@ module type T = sig
     | Vs_list of view_spec list
     | Vs_comp of comp_spec
 
-  type phase = P_init of path | P_succ of path | P_effect
+  type phase = P_init of path | P_succ of path | P_normal
   type decision = Idle | Retry | Update
   type mode = M_react | M_eloop
 
@@ -47,7 +47,7 @@ module type T = sig
     | T_list of tree list
     | T_path of path
 
-  type entry = {
+  type view = {
     comp_spec : comp_spec;
     dec : decision;
     st_store : st_store;
@@ -65,7 +65,7 @@ module type T = sig
   val sexp_of_phase : phase -> Sexp.t
   val sexp_of_decision : decision -> Sexp.t
   val sexp_of_tree : tree -> Sexp.t
-  val sexp_of_entry : entry -> Sexp.t
+  val sexp_of_view : view -> Sexp.t
   val sexp_of_addr : addr -> Sexp.t
   val sexp_of_obj : obj -> Sexp.t
   val equal_const : const -> const -> bool
@@ -147,7 +147,7 @@ module type Tree_mem = sig
   type job_q
   type decision
   type clos
-  type entry
+  type view
   type t
 
   val empty : t
@@ -156,11 +156,12 @@ module type Tree_mem = sig
   val get_dec : t -> path:path -> decision
   val set_dec : t -> path:path -> decision -> t
   val set_arg : t -> path:path -> value -> t
-  val enq_eff : t -> path:path -> clos -> t
+
+  (*val enq_eff : t -> path:path -> clos -> t*)
   val flush_eff : t -> path:path -> t
   val alloc_pt : t -> path
-  val lookup_ent : t -> path:path -> entry
-  val update_ent : t -> path:path -> entry -> t
+  val lookup_view : t -> path:path -> view
+  val update_view : t -> path:path -> view -> t
   val root_pt : t -> path
   val sexp_of_t : t -> Sexp.t
 end
@@ -241,7 +242,7 @@ module type S = sig
        and type job_q = job_q
        and type decision = decision
        and type clos = clos
-       and type entry = entry
+       and type view = view
 
   module Def_tab : Def_tab with type comp_def = comp_def and type env = env
 

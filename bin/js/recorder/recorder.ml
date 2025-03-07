@@ -18,10 +18,8 @@ let get_path_from_checkpoint = function
   | Event _ -> None
 
 type tree = { path : string; name : string; children : tree list }
-and entry = { msg : string; tree : tree }
-
-and recording = { checkpoints : entry list; log : string }
-[@@deriving yojson_of]
+and view = { msg : string; tree : tree }
+and recording = { checkpoints : view list; log : string } [@@deriving yojson_of]
 
 let emp_recording = { checkpoints = []; log = "" }
 
@@ -44,7 +42,7 @@ and list (ts : Concrete_domains.tree list) : tree =
   { path = ""; name = "..."; children = List.map ts ~f:tree }
 
 and path (pt : Path.t) : tree =
-  let { comp_spec = { comp; _ }; children; _ } = perform (Lookup_ent pt) in
+  let { comp_spec = { comp; _ }; children; _ } = perform (Lookup_view pt) in
   {
     path = pt |> Path.sexp_of_t |> Sexp.to_string;
     name = comp;
@@ -55,9 +53,9 @@ let event_h (type a b) (f : a -> b) (x : a) :
     recording:recording -> b * recording =
   match f x with
   | v -> fun ~recording -> (v, recording)
-  | effect Update_st (path, label, (v, q)), k ->
+  | effect Tree_update_st (path, label, (v, q)), k ->
       fun ~recording ->
-        let () = perform (Update_st (path, label, (v, q))) in
+        let () = perform (Tree_update_st (path, label, (v, q))) in
         let recording =
           {
             recording with
@@ -70,9 +68,9 @@ let event_h (type a b) (f : a -> b) (x : a) :
           }
         in
         continue k () ~recording
-  | effect Set_dec (path, dec), k ->
+  | effect Tree_set_dec (path, dec), k ->
       fun ~recording ->
-        let () = perform (Set_dec (path, dec)) in
+        let () = perform (Tree_set_dec (path, dec)) in
         let recording =
           {
             recording with
@@ -81,19 +79,6 @@ let event_h (type a b) (f : a -> b) (x : a) :
               ^ Printf.sprintf "[path %s] Set decision %s\n"
                   (Sexp.to_string (Path.sexp_of_t path))
                   (Sexp.to_string (sexp_of_decision dec));
-          }
-        in
-        continue k () ~recording
-  | effect Enq_eff (path, clos), k ->
-      fun ~recording ->
-        let () = perform (Enq_eff (path, clos)) in
-        let recording =
-          {
-            recording with
-            log =
-              recording.log
-              ^ Printf.sprintf "[path %s] Enqueue effect\n"
-                  (Sexp.to_string (Path.sexp_of_t path));
           }
         in
         continue k () ~recording

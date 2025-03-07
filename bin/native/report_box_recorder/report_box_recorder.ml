@@ -37,7 +37,7 @@ and list (ts : tree list) : B.t = B.hlist_map (fun t -> tree t |> align) ts
 
 and path (pt : Path.t) : B.t =
   let { comp_spec = { comp; arg; _ }; dec; st_store; eff_q; children } =
-    perform (Lookup_ent pt)
+    perform (Lookup_view pt)
   in
   let comp_spec_box =
     B.(hlist ~bars:false [ bold_text (trunc comp); text " "; value arg ])

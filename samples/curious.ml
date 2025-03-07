@@ -7,6 +7,6 @@ let Counter x =
       setS (fun s -> print "Update"; s + 1)
   );
   print "Return";
-  view [s]
+  s
 ;;
-view [Counter 0]
+Counter 0
