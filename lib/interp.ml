@@ -383,6 +383,16 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
   Logger.reconcile old_tree vs;
   match (old_tree, vs) with
   | T_const k, Vs_const k' when equal_const k k' -> T_const k
+  | T_list ts, Vs_list vss ->
+      let len_ts = List.length ts in
+      let len_vs = List.length vss in
+      let ts, vs =
+        if len_ts < len_vs then
+          (ts @ List.init (len_vs - len_ts) ~f:(fun _ -> T_const Unit), vss)
+        else (List.take ts len_vs, vss)
+      in
+      let new_ts = List.map2_exn ts vs ~f:reconcile in
+      T_list new_ts
   | T_path path, (Vs_comp { comp; arg } as vs) ->
       let ({ comp_spec = { comp = comp'; _ }; children = old_tree; _ } as view)
           =
@@ -410,16 +420,6 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
              { msg = "Rendered (update)"; checkpoint = Render_finish path });
         T_path path)
       else render vs
-  | T_list ts, Vs_list vss ->
-      let len_ts = List.length ts in
-      let len_vs = List.length vss in
-      let ts, vs =
-        if len_ts < len_vs then
-          (ts @ List.init (len_vs - len_ts) ~f:(fun _ -> T_const Unit), vss)
-        else (List.take ts len_vs, vss)
-      in
-      let new_ts = List.map2_exn ts vs ~f:reconcile in
-      T_list new_ts
   | _, vs -> render vs
 
 let rec visit (t : tree) : bool =
