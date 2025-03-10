@@ -382,7 +382,6 @@ let rec render (vs : view_spec) : tree =
 let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
   Logger.reconcile old_tree vs;
   match (old_tree, vs) with
-  | T_const k, Vs_const k' when equal_const k k' -> T_const k
   | T_list ts, Vs_list vss ->
       let len_ts = List.length ts in
       let len_vs = List.length vss in
