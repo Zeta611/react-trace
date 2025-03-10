@@ -1065,7 +1065,7 @@ let event_handler_prints () =
     parse_prog
       {|
 let C x =
-  [fun _ -> print "0", fun _ -> print "1"]
+  [button (fun _ -> print "0"), button (fun _ -> print "1")]
 ;;
 C ()
 |}
@@ -1143,7 +1143,8 @@ let App _ =
   ]
 ;;
 App ()
-  |} in
+  |}
+  in
   let output = run_event_output ~event_q:[ 0 ] prog in
   Alcotest.(check' string)
     ~msg:"call setter in setter"
