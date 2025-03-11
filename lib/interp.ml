@@ -341,6 +341,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
   (try if re_render >= perform Re_render_limit then raise Too_many_re_renders
    with Stdlib.Effect.Unhandled Re_render_limit -> ());
 
+   perform (View_set_dec Idle);
   let v = eval expr in
   let path = perform Rd_pt in
   match perform View_get_dec with
@@ -411,7 +412,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
         let env = Env.extend Env.empty ~id:param ~value:arg in
         let vs, view =
           (eval_mult |> env_h ~env
-          |> view_h ~view:{ view with dec = Idle; comp_spec = { comp; arg } }
+          |> view_h ~view:{ view with comp_spec = { comp; arg } }
           |> ph_h ~ph:(P_succ path))
             body
         in
@@ -449,7 +450,7 @@ let rec visit (t : tree) : bool =
           let env = Env.extend Env.empty ~id:param ~value:arg in
           let vs, view =
             (eval_mult |> env_h ~env
-            |> view_h ~view:{ view with dec = Idle }
+            |> view_h ~view
             |> ph_h ~ph:(P_succ path))
               body
           in
