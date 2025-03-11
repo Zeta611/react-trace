@@ -15,7 +15,7 @@ let rec label_stts_prog = function
 
 and label_stts_expr label = function
   | { desc = Stt s; loc } ->
-      if Label.(s.label = "") then
+      if String.equal s.label "" then
         Expr.mk ~loc
           (Stt { s with
             label = Int.to_string label;
@@ -23,6 +23,10 @@ and label_stts_expr label = function
       else
         Expr.mk ~loc
           (Stt { s with body = label_stts_expr label s.body })
+  | { desc = Seq (e1, e2); loc } ->
+      Expr.mk ~loc (Seq (e1, label_stts_expr label e2))
+  | { desc = Let { id; bound; body }; loc } ->
+      Expr.mk ~loc (Let { id; bound; body = label_stts_expr label body })
   | e -> e
 %}
 

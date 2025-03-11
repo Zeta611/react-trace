@@ -54,7 +54,7 @@ and path (pt : Path.t) : B.t =
           let value = Sexp.to_string (sexp_of_value value) in
           let job_q = Job_q.to_list job_q |> List.map ~f:clos in
 
-          B.(tree (text (lbl ^ " ↦ " ^ value)) job_q))
+          B.(tree (text ("Stt" ^ lbl ^ " ↦ " ^ value)) job_q))
       |> B.vlist
     in
     B.(hlist [ text "stt"; st_trees ])
@@ -73,8 +73,10 @@ let event_h (type a b) (f : a -> b) (x : a) :
     recording:recording -> b * recording =
   match f x with
   | v -> fun ~recording -> (v, recording)
-  | effect Checkpoint { msg; _ }, k ->
+  | effect Checkpoint { msg; _ }, k -> (
       fun ~recording ->
-        let root = perform Get_root_pt in
-        let box = path root in
-        continue k () ~recording:((msg, box) :: recording)
+        try
+          let root = perform Get_root_pt in
+          let box = path root in
+          continue k () ~recording:((msg, box) :: recording)
+        with _ -> continue k () ~recording)

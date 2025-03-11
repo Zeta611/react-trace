@@ -274,6 +274,7 @@ let e_set obj idx value =
 
 let e_get obj idx = Syntax.Expr.{ desc = Get { obj; idx }; loc = Location.none }
 let e_alloc = Syntax.Expr.{ desc = Alloc; loc = Location.none }
+let e_print expr = Syntax.Expr.{ desc = Print expr; loc = Location.none }
 
 let parse_expr_test msg input expected =
   let open Syntax in
@@ -356,6 +357,16 @@ let parse_stt_labeled () =
           (e_uop Uminus (e_const (Int 42)))
           (e_bop Plus (e_var "x") (e_var "y"))))
 
+let parse_seq_stt_labeled () =
+  parse_expr_test "parse stt labeled"
+    {|print "hi"; let (x, setX) = useState^a 42 in let (y, setY) = useState^b -42 in x + y|}
+    (e_seq
+       (e_print (e_const (String "hi")))
+       (e_stt "a" "x" "setX" (e_const (Int 42))
+          (e_stt "b" "y" "setY"
+             (e_uop Uminus (e_const (Int 42)))
+             (e_bop Plus (e_var "x") (e_var "y")))))
+
 let parse_eff () =
   parse_expr_test "parse eff" "useEffect (x ())"
     (e_eff (e_app (e_var "x") (e_const Unit)))
@@ -376,7 +387,7 @@ let parse_op () =
        (e_const (Bool true)))
 
 let parse_obj () =
-  parse_expr_test "parse obj" "let x = {} in x[\"y\"] := 3; x[\"y\"]"
+  parse_expr_test "parse obj" {|let x = {} in x["y"] := 3; x["y"]|}
     (e_let "x" e_alloc
        (e_seq
           (e_set (e_var "x") (e_const (String "y")) (e_const (Int 3)))
@@ -392,7 +403,7 @@ let parse_indexing () =
           (e_bop Plus (e_get (e_var "x") (e_const (Int 4))) (e_const (Int 1)))))
 
 let parse_string () =
-  parse_expr_test "parse string" "\"hello world\""
+  parse_expr_test "parse string" {|"hello world"|}
     (e_const (String "hello world"))
 
 let js_convert_test msg input expected =
@@ -1111,14 +1122,10 @@ let call_setter_in_setter () =
 let App _ =
   print("start App()");
   let (data, setData) = useState(
-    print("start init data");
-    print("end init data: 0");
+    print("init");
     0
   ) in
-  useEffect(
-    print("start effect");
-    print("end effect")
-  );
+  useEffect(print("effect"));
   print("end App()");
   [
     fun _ -> (
@@ -1150,11 +1157,9 @@ App ()
     ~msg:"call setter in setter"
     ~expected:
       {|start App()
-start init data
-end init data: 0
+init
 end App()
-start effect
-end effect
+effect
 start onClick
 end onClick
 start App()
@@ -1163,19 +1168,38 @@ start set1: d =
 end set1: return
 1
 end App()
-start effect
-end effect
 start App()
 start set2: d =
 1
 end set2: return
 0
 end App()
-start effect
-end effect
-start App()
-end App()
+effect
 |}
+    ~actual:output
+
+let set_state_before_bind () =
+  let prog =
+    parse_prog
+      {|
+let C _ =
+  let (setter, setSetter) = useState^setter () in
+  let (render, setRender) = useState^render 0 in
+  (if render < 3 then setRender(fun r -> r + 1));
+
+  (if (setter <> ()) && (render < 3) then setter(fun _ -> 1));
+  let (value, setValue) = useState^value 0 in
+  (if (setter = ()) && (render < 3) then setSetter(fun _ -> setValue));
+  print render;
+  print value;
+  value
+;;
+C ()
+|}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"set state before bind" ~expected:"0\n0\n1\n1\n2\n1\n3\n1\n"
     ~actual:output
 
 let () =
@@ -1199,6 +1223,7 @@ let () =
           test_case "let" `Quick parse_let;
           test_case "stt" `Quick parse_stt;
           test_case "stt labeled" `Quick parse_stt_labeled;
+          test_case "(print; stt) labeled" `Quick parse_seq_stt_labeled;
           test_case "eff" `Quick parse_eff;
           test_case "seq" `Quick parse_seq;
           test_case "op" `Quick parse_op;
@@ -1297,5 +1322,6 @@ let () =
           test_case "Counter Test 2" `Quick counter_test_2;
           test_case "Counter Test 3" `Quick counter_test_3;
           test_case "Call setter in setter" `Quick call_setter_in_setter;
+          test_case "Set state before bind" `Quick set_state_before_bind;
         ] );
     ]

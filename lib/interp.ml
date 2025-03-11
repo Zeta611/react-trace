@@ -261,7 +261,9 @@ let rec eval : type a. a Expr.t -> value =
             |> Env.extend ~id:stt ~value:v
             |> Env.extend ~id:set ~value:(Set_clos { label; path })
           in
-          if Value.(v_old <> v) then perform (View_set_dec Update);
+          (if Value.(v_old <> v) then
+             let dec = perform View_get_dec in
+             if Decision.(dec <> Retry) then perform (View_set_dec Update));
           let _, q = perform (View_lookup_st label) in
           perform (View_update_st (label, (v, q)));
           perform (In_env env) eval body
@@ -292,6 +294,7 @@ let rec eval : type a. a Expr.t -> value =
         | Eq, Const Unit, Const Unit -> Bool true
         | Eq, Const (Bool b1), Const (Bool b2) -> Bool Bool.(b1 = b2)
         | Eq, Const (Int i1), Const (Int i2) -> Bool (i1 = i2)
+        | Eq, _, _ -> Bool false
         | Lt, Const (Int i1), Const (Int i2) -> Bool (i1 < i2)
         | Gt, Const (Int i1), Const (Int i2) -> Bool (i1 > i2)
         | Le, Const (Int i1), Const (Int i2) -> Bool (i1 <= i2)
@@ -299,6 +302,7 @@ let rec eval : type a. a Expr.t -> value =
         | Ne, Const Unit, Const Unit -> Bool false
         | Ne, Const (Bool b1), Const (Bool b2) -> Bool Bool.(b1 <> b2)
         | Ne, Const (Int i1), Const (Int i2) -> Bool (i1 <> i2)
+        | Ne, _, _ -> Bool true
         | And, Const (Bool b1), Const (Bool b2) -> Bool (b1 && b2)
         | Or, Const (Bool b1), Const (Bool b2) -> Bool (b1 || b2)
         | Plus, Const (Int i1), Const (Int i2) -> Int (i1 + i2)
@@ -346,6 +350,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
         (Checkpoint
            { msg = "Will retry"; checkpoint = Retry_start (re_render, path) });
       perform View_flush_eff;
+      perform (View_set_dec Idle);
       ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr
   | Idle | Update -> v
 
@@ -375,7 +380,7 @@ let rec render (vs : view_spec) : tree =
       perform (Update_view (path, view));
       perform (Checkpoint { msg = "Render"; checkpoint = Render_check path });
       let t = render vs in
-      perform (Update_view (path, { view with children = t }));
+      perform (Update_view (path, { view with dec = Idle; children = t }));
       perform (Checkpoint { msg = "Rendered"; checkpoint = Render_finish path });
       T_path path
 
@@ -413,7 +418,8 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
         let vs = vs_of_value_exn vs in
 
         let new_tree = reconcile old_tree vs in
-        perform (Update_view (path, { view with children = new_tree }));
+        perform
+          (Update_view (path, { view with dec = Idle; children = new_tree }));
         perform
           (Checkpoint
              { msg = "Rendered (update)"; checkpoint = Render_finish path });
@@ -463,7 +469,9 @@ let rec visit (t : tree) : bool =
               b
           | Update ->
               let children' = reconcile children vs in
-              perform (Update_view (path, { view with children = children' }));
+              perform
+                (Update_view
+                   (path, { view with dec = Idle; children = children' }));
               perform
                 (Checkpoint
                    { msg = "Rendered (visit)"; checkpoint = Render_finish path });

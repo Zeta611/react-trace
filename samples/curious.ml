@@ -3,8 +3,9 @@ let Counter x =
   let (s, setS) = useState x in
   useEffect (
     print "Effect";
-    if s mod 2 = 0 then
-      setS (fun s -> print "Update"; s + 1)
+    setS (fun s -> if s mod 2 = 0 then (print "Update"; s + 1) else s)
+    #if s mod 2 = 0 then
+    #  setS (fun s -> print "Update"; s + 1)
   );
   print "Return";
   s
