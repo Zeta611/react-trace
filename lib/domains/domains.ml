@@ -39,7 +39,7 @@ module type T = sig
 
   type phase = P_init of path | P_succ of path | P_normal
   type decision = Idle | Retry | Update
-  type mode = M_react | M_eloop
+  type mode = M_paint | M_react | M_eloop
 
   type tree =
     | T_const of const

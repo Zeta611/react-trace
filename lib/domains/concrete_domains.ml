@@ -47,7 +47,7 @@ module M : Domains.S = struct
     [@@deriving sexp_of]
 
     type decision = Idle | Retry | Update [@@deriving sexp_of]
-    type mode = M_react | M_eloop
+    type mode = M_paint | M_react | M_eloop
 
     type tree =
       | T_const of const
@@ -255,7 +255,7 @@ module M : Domains.S = struct
   end
 
   module Mode = struct
-    type t = mode = M_react | M_eloop [@@deriving equal]
+    type t = mode = M_paint | M_react | M_eloop [@@deriving equal]
 
     let ( = ) = equal
     let ( <> ) m1 m2 = not (m1 = m2)

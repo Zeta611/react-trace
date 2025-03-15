@@ -341,7 +341,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
   (try if re_render >= perform Re_render_limit then raise Too_many_re_renders
    with Stdlib.Effect.Unhandled Re_render_limit -> ());
 
-   perform (View_set_dec Idle);
+  perform (View_set_dec Idle);
   let v = eval expr in
   let path = perform Rd_pt in
   match perform View_get_dec with
@@ -449,9 +449,7 @@ let rec visit (t : tree) : bool =
           let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
           let env = Env.extend Env.empty ~id:param ~value:arg in
           let vs, view =
-            (eval_mult |> env_h ~env
-            |> view_h ~view
-            |> ph_h ~ph:(P_succ path))
+            (eval_mult |> env_h ~env |> view_h ~view |> ph_h ~ph:(P_succ path))
               body
           in
           let vs = vs_of_value_exn vs in
@@ -504,19 +502,6 @@ let rec collect : Prog.t -> Def_tab.t = function
   | Comp ({ name = comp; param; body }, p) ->
       collect p |> Def_tab.extend ~comp ~comp_def:{ param; body }
 
-let step_prog (deftab : Def_tab.t) (top_exp : Expr.hook_free_t) : tree =
-  Logger.step_prog deftab top_exp;
-  let vs = top_exp |> eval |> vs_of_value_exn in
-  let t = render vs in
-  commit_effs t;
-  t
-
-let step_path (t : tree) : bool =
-  Logger.step_path t;
-  let b = visit t in
-  if b then commit_effs t;
-  b
-
 let rec handlers (t : tree) : clos list =
   match t with
   | T_const _ -> []
@@ -554,16 +539,21 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
 
   let driver () =
     let cnt = ref 1 in
-    Logs.info (fun m -> m "Step prog %d" !cnt);
+    Logs.info (fun m -> m "Step init %d" !cnt);
 
-    let root = step_prog deftab top_exp in
+    let vs = top_exp |> eval |> vs_of_value_exn in
+    let root = render vs in
     let rec step = function
-      | M_react ->
-          Logs.info (fun m -> m "Step path %d" (!cnt + 1));
-          if step_path root then (
+      | M_paint ->
+          Logs.info (fun m -> m "Step visit %d" (!cnt + 1));
+          if visit root then (
             Int.incr cnt;
             match fuel with Some n when !cnt >= n -> () | _ -> step M_react)
           else step M_eloop
+      | M_react ->
+          Logs.info (fun m -> m "Step effect %d" (!cnt + 1));
+          commit_effs root;
+          step M_paint
       | M_eloop -> (
           let i = perform Listen in
           match i with
@@ -572,8 +562,19 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
               ()
           | Some i ->
               Logs.info (fun m -> m "Step loop [event: %d]" i);
-              step_loop i root;
-              step M_react)
+              let clos = List.nth_exn (handlers root) i in
+              (eval
+              |> env_h ~env:(build_app_env clos (Const Unit))
+              |> ph_h ~ph:P_normal)
+                clos.body
+              |> ignore;
+              perform
+                (Checkpoint
+                   {
+                     msg = "After Event " ^ Int.to_string i;
+                     checkpoint = Event i;
+                   });
+              step M_paint)
     in
     step M_react;
     !cnt
