@@ -165,8 +165,8 @@ let mount_tree path t =
       m "mount_tree [path: %a, t: %a]" Sexp.pp_hum (Path.sexp_of_t path)
         Sexp.pp_hum (sexp_of_tree t))
 
-let render vs =
-  Logs.debug (fun m -> m "render [vs: %a]" Sexp.pp (sexp_of_view_spec vs))
+let init vs =
+  Logs.debug (fun m -> m "init [vs: %a]" Sexp.pp (sexp_of_view_spec vs))
 
 let update path arg =
   Logs.debug (fun m ->

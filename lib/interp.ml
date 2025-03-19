@@ -126,7 +126,7 @@ let treemem_h (type a b) (f : a -> b) (x : a) :
       fun ~treemem ->
         Logger.treemem treemem (`Tree_set_dec (path, dec));
         continue k () ~treemem:(Tree_mem.set_dec treemem ~path dec)
-  (* NOTE: in render *)
+  (* NOTE: in init *)
   | effect Alloc_pt, k ->
       fun ~treemem ->
         Logger.treemem treemem `Alloc_pt;
@@ -355,12 +355,12 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
       ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr
   | Idle | Update -> v
 
-let rec render (vs : view_spec) : tree =
-  Logger.render vs;
+let rec init (vs : view_spec) : tree =
+  Logger.init vs;
   match vs with
   | Vs_const k -> T_const k
   | Vs_clos cl -> T_clos cl
-  | Vs_list vss -> T_list (List.map vss ~f:render)
+  | Vs_list vss -> T_list (List.map vss ~f:init)
   | Vs_comp ({ comp; arg } as comp_spec) ->
       let path = perform Alloc_pt in
       let view =
@@ -380,7 +380,7 @@ let rec render (vs : view_spec) : tree =
       let vs = vs_of_value_exn vs in
       perform (Update_view (path, view));
       perform (Checkpoint { msg = "Render"; checkpoint = Render_check path });
-      let t = render vs in
+      let t = init vs in
       perform (Update_view (path, { view with dec = Idle; children = t }));
       perform (Checkpoint { msg = "Rendered"; checkpoint = Render_finish path });
       T_path path
@@ -425,8 +425,8 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
           (Checkpoint
              { msg = "Rendered (update)"; checkpoint = Render_finish path });
         T_path path)
-      else render vs
-  | _, vs -> render vs
+      else init vs
+  | _, vs -> init vs
 
 let rec visit (t : tree) : bool =
   Logger.visit t;
@@ -542,7 +542,7 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
     Logs.info (fun m -> m "Step init %d" !cnt);
 
     let vs = top_exp |> eval |> vs_of_value_exn in
-    let root = render vs in
+    let root = init vs in
     let rec step = function
       | M_paint ->
           Logs.info (fun m -> m "Step visit %d" (!cnt + 1));
