@@ -46,7 +46,7 @@ module M : Domains.S = struct
     type phase = P_init of path | P_succ of path | P_normal
     [@@deriving sexp_of]
 
-    type decision = Idle | Retry | Update [@@deriving sexp_of]
+    type decision = Idle | Retry | Update | Effect [@@deriving sexp_of]
     type mode = M_paint | M_react | M_eloop
 
     type tree =
@@ -248,7 +248,7 @@ module M : Domains.S = struct
   end
 
   module Decision = struct
-    type t = decision = Idle | Retry | Update [@@deriving equal]
+    type t = decision = Idle | Retry | Update | Effect [@@deriving equal]
 
     let ( = ) = equal
     let ( <> ) d1 d2 = not (d1 = d2)

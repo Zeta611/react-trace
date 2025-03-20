@@ -1274,7 +1274,7 @@ let () =
           test_case "Re-render 1 time when setter is called in useEffect (1)"
             `Quick set_in_effect_step_two_times;
           test_case
-            "Inifinite re-renders when diverging setter is called in useEffect \
+            "Infinite re-renders when diverging setter is called in useEffect \
              (1)"
             `Quick set_in_effect_step_indefinitely;
           test_case "Re-render 2 times when setter is called in useEffect (2)"
@@ -1291,7 +1291,7 @@ let () =
           test_case "Invalid phase when foreign setter is called in PInit"
             `Quick set_passed_invalid_phase;
           test_case
-            "Inifinite re-renders when diverging setter is called in useEffect \
+            "Infinite re-renders when diverging setter is called in useEffect \
              (2)"
             `Quick set_passed_step_indefinitely;
           test_case

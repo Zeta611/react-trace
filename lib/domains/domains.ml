@@ -38,7 +38,7 @@ module type T = sig
     | Vs_comp of comp_spec
 
   type phase = P_init of path | P_succ of path | P_normal
-  type decision = Idle | Retry | Update
+  type decision = Idle | Retry | Update | Effect
   type mode = M_paint | M_react | M_eloop
 
   type tree =

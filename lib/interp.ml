@@ -263,7 +263,7 @@ let rec eval : type a. a Expr.t -> value =
           in
           (if Value.(v_old <> v) then
              let dec = perform View_get_dec in
-             if Decision.(dec <> Retry) then perform (View_set_dec Update));
+             if Decision.(dec <> Retry) then perform (View_set_dec Effect));
           let _, q = perform (View_lookup_st label) in
           perform (View_update_st (label, (v, q)));
           perform (In_env env) eval body
@@ -341,6 +341,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
   (try if re_render >= perform Re_render_limit then raise Too_many_re_renders
    with Stdlib.Effect.Unhandled Re_render_limit -> ());
 
+  perform View_flush_eff;
   perform (View_set_dec Idle);
   let v = eval expr in
   let path = perform Rd_pt in
@@ -350,10 +351,9 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
       perform
         (Checkpoint
            { msg = "Will retry"; checkpoint = Retry_start (re_render, path) });
-      perform View_flush_eff;
-      perform (View_set_dec Idle);
       ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr
-  | Idle | Update -> v
+  | Idle | Effect -> v
+  | Update -> raise Unreachable
 
 let rec init (vs : view_spec) : tree =
   Logger.init vs;
@@ -381,7 +381,7 @@ let rec init (vs : view_spec) : tree =
       perform (Update_view (path, view));
       perform (Checkpoint { msg = "Render"; checkpoint = Render_check path });
       let t = init vs in
-      perform (Update_view (path, { view with dec = Idle; children = t }));
+      perform (Update_view (path, { view with dec = Effect; children = t }));
       perform (Checkpoint { msg = "Rendered"; checkpoint = Render_finish path });
       T_path path
 
@@ -420,7 +420,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
 
         let new_tree = reconcile old_tree vs in
         perform
-          (Update_view (path, { view with dec = Idle; children = new_tree }));
+          (Update_view (path, { view with dec = Effect; children = new_tree }));
         perform
           (Checkpoint
              { msg = "Rendered (update)"; checkpoint = Render_finish path });
@@ -440,7 +440,7 @@ let rec visit (t : tree) : bool =
         perform (Lookup_view path)
       in
       match perform (Tree_get_dec path) with
-      | Retry -> raise Unreachable
+      | Retry | Effect -> raise Unreachable
       | Idle -> visit children
       | Update -> (
           perform
@@ -455,22 +455,22 @@ let rec visit (t : tree) : bool =
           let vs = vs_of_value_exn vs in
 
           match view.dec with
-          | Retry -> raise Unreachable
+          | Retry | Update -> raise Unreachable
           | Idle ->
+              let b = visit children in
+              perform (Update_view (path, view));
               perform
                 (Checkpoint
                    {
                      msg = "Render canceled (visit)";
                      checkpoint = Render_cancel path;
                    });
-              let b = visit children in
-              perform (Update_view (path, { view with eff_q = Job_q.empty }));
               b
-          | Update ->
-              let children' = reconcile children vs in
+          | Effect ->
+              let children = reconcile children vs in
               perform
                 (Update_view
-                   (path, { view with dec = Idle; children = children' }));
+                   (path, { view with children }));
               perform
                 (Checkpoint
                    { msg = "Rendered (visit)"; checkpoint = Render_finish path });
@@ -482,14 +482,14 @@ let rec commit_effs (t : tree) : unit =
   | T_const _ | T_clos _ -> ()
   | T_list ts -> List.iter ts ~f:commit_effs
   | T_path path ->
-      let { children; _ } = perform (Lookup_view path) in
+      let { children; dec; eff_q; _ } = perform (Lookup_view path) in
+      perform (Tree_set_dec (path, Idle));
       commit_effs children;
 
       (* Refetch the view, as committing effects of children may change it *)
-      let { eff_q; _ } = perform (Lookup_view path) in
-      Job_q.iter eff_q ~f:(fun { body; env; _ } ->
-          (eval |> env_h ~env |> ph_h ~ph:P_normal) body |> ignore);
-      perform (Tree_flush_eff path);
+      if Decision.(dec = Effect) then
+        Job_q.iter eff_q ~f:(fun { body; env; _ } ->
+            (eval |> env_h ~env |> ph_h ~ph:P_normal) body |> ignore);
       perform
         (Checkpoint { msg = "After effects"; checkpoint = Effects_finish path })
 
