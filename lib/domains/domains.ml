@@ -38,7 +38,7 @@ module type T = sig
     | Vs_comp of comp_spec
 
   type phase = P_init of path | P_succ of path | P_normal
-  type decision = Idle | Retry | Update | Effect
+  type decision = { chk : bool; eff : bool }
   type mode = M_paint | M_react | M_eloop
 
   type tree =
@@ -154,6 +154,7 @@ module type Tree_mem = sig
   val lookup_st : t -> path:path -> label:Label.t -> value * job_q
   val update_st : t -> path:path -> label:Label.t -> value * job_q -> t
   val get_dec : t -> path:path -> decision
+  val add_dec : t -> path:path -> decision -> t
   val set_dec : t -> path:path -> decision -> t
   val set_arg : t -> path:path -> value -> t
 
@@ -208,6 +209,10 @@ module type Decision = sig
   val equal : t -> t -> bool
   val ( = ) : t -> t -> bool
   val ( <> ) : t -> t -> bool
+  val ( + ) : t -> t -> t
+  val idle : t
+  val chk : t
+  val eff : t
 end
 
 module type Mode = sig

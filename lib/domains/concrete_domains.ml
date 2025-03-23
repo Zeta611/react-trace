@@ -46,7 +46,7 @@ module M : Domains.S = struct
     type phase = P_init of path | P_succ of path | P_normal
     [@@deriving sexp_of]
 
-    type decision = Idle | Retry | Update | Effect [@@deriving sexp_of]
+    type decision = { chk : bool; eff : bool } [@@deriving sexp_of]
     type mode = M_paint | M_react | M_eloop
 
     type tree =
@@ -124,6 +124,19 @@ module M : Domains.S = struct
     type t = T.clos [@@deriving sexp_of]
   end)
 
+  module Decision = struct
+    open T
+
+    type t = decision = { chk : bool; eff : bool } [@@deriving equal]
+
+    let ( = ) = equal
+    let ( <> ) d1 d2 = not (d1 = d2)
+    let ( + ) d1 d2 = { chk = d1.chk || d2.chk; eff = d1.eff || d2.eff }
+    let idle = { chk = false; eff = false }
+    let chk = { chk = true; eff = false }
+    let eff = { chk = false; eff = true }
+  end
+
   module Tree_mem :
     Domains.Tree_mem
       with type value = T.value
@@ -157,6 +170,11 @@ module M : Domains.S = struct
     let get_dec tree_mem ~path =
       let { dec; _ } = Map.find_exn tree_mem path in
       dec
+
+    let add_dec tree_mem ~path dec =
+      let view = Map.find_exn tree_mem path in
+      let dec = Decision.(dec + view.dec) in
+      Map.set tree_mem ~key:path ~data:{ view with dec }
 
     let set_dec tree_mem ~path dec =
       let view = Map.find_exn tree_mem path in
@@ -245,13 +263,6 @@ module M : Domains.S = struct
 
     let ( = ) = equal
     let ( <> ) p1 p2 = not (p1 = p2)
-  end
-
-  module Decision = struct
-    type t = decision = Idle | Retry | Update | Effect [@@deriving equal]
-
-    let ( = ) = equal
-    let ( <> ) d1 d2 = not (d1 = d2)
   end
 
   module Mode = struct

@@ -94,6 +94,10 @@ let view_h (type a b) (f : a -> b) (x : a) : view:view -> b * view =
       fun ~view ->
         Logger.view view (`View_set_dec dec);
         continue k () ~view:{ view with dec }
+  | effect View_add_dec dec, k ->
+      fun ~view ->
+        Logger.view view (`View_add_dec dec);
+        continue k () ~view:{ view with dec = Decision.(view.dec + dec) }
   | effect View_enq_eff clos, k ->
       fun ~view ->
         Logger.view view (`View_enq_eff clos);
@@ -122,6 +126,10 @@ let treemem_h (type a b) (f : a -> b) (x : a) :
       fun ~treemem ->
         Logger.treemem treemem (`Tree_get_dec path);
         continue k (Tree_mem.get_dec treemem ~path) ~treemem
+  | effect Tree_add_dec (path, dec), k ->
+      fun ~treemem ->
+        Logger.treemem treemem (`Tree_add_dec (path, dec));
+        continue k () ~treemem:(Tree_mem.add_dec treemem ~path dec)
   | effect Tree_set_dec (path, dec), k ->
       fun ~treemem ->
         Logger.treemem treemem (`Tree_set_dec (path, dec));
@@ -220,11 +228,11 @@ let rec eval : type a. a Expr.t -> value =
           let clos = eval arg |> clos_of_value_exn in
           (match perform Rd_ph with
           | (P_init self_pt | P_succ self_pt) when Path.(path = self_pt) ->
-              perform (View_set_dec Retry);
+              perform (View_add_dec Decision.chk);
               let v, q = perform (View_lookup_st label) in
               perform (View_update_st (label, (v, Job_q.enqueue q clos)))
           | P_normal ->
-              perform (Tree_set_dec (path, Update));
+              perform (Tree_add_dec (path, Decision.chk));
               let v, q = perform (Tree_lookup_st (path, label)) in
               perform (Tree_update_st (path, label, (v, Job_q.enqueue q clos)))
           | _ -> raise Invalid_phase);
@@ -261,9 +269,7 @@ let rec eval : type a. a Expr.t -> value =
             |> Env.extend ~id:stt ~value:v
             |> Env.extend ~id:set ~value:(Set_clos { label; path })
           in
-          (if Value.(v_old <> v) then
-             let dec = perform View_get_dec in
-             if Decision.(dec <> Retry) then perform (View_set_dec Effect));
+          if Value.(v_old <> v) then perform (View_add_dec Decision.eff);
           let _, q = perform (View_lookup_st label) in
           perform (View_update_st (label, (v, q)));
           perform (In_env env) eval body
@@ -342,18 +348,16 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
    with Stdlib.Effect.Unhandled Re_render_limit -> ());
 
   perform View_flush_eff;
-  perform (View_set_dec Idle);
+  perform (View_set_dec Decision.idle);
   let v = eval expr in
   let path = perform Rd_pt in
-  match perform View_get_dec with
-  | Retry ->
-      let re_render = re_render + 1 in
-      perform
-        (Checkpoint
-           { msg = "Will retry"; checkpoint = Retry_start (re_render, path) });
-      ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr
-  | Idle | Effect -> v
-  | Update -> raise Unreachable
+  if (perform View_get_dec).chk then (
+    let re_render = re_render + 1 in
+    perform
+      (Checkpoint
+         { msg = "Will retry"; checkpoint = Retry_start (re_render, path) });
+    ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr)
+  else v
 
 let rec init (vs : view_spec) : tree =
   Logger.init vs;
@@ -366,7 +370,7 @@ let rec init (vs : view_spec) : tree =
       let view =
         {
           comp_spec;
-          dec = Idle;
+          dec = Decision.idle;
           st_store = St_store.empty;
           eff_q = Job_q.empty;
           children = T_const Unit;
@@ -381,7 +385,8 @@ let rec init (vs : view_spec) : tree =
       perform (Update_view (path, view));
       perform (Checkpoint { msg = "Render"; checkpoint = Render_check path });
       let t = init vs in
-      perform (Update_view (path, { view with dec = Effect; children = t }));
+      perform
+        (Update_view (path, { view with dec = Decision.eff; children = t }));
       perform (Checkpoint { msg = "Rendered"; checkpoint = Render_finish path });
       T_path path
 
@@ -420,7 +425,8 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
 
         let new_tree = reconcile old_tree vs in
         perform
-          (Update_view (path, { view with dec = Effect; children = new_tree }));
+          (Update_view
+             (path, { view with dec = Decision.eff; children = new_tree }));
         perform
           (Checkpoint
              { msg = "Rendered (update)"; checkpoint = Render_finish path });
@@ -435,46 +441,39 @@ let rec visit (t : tree) : bool =
   | T_list ts ->
       let updated = List.map ts ~f:visit in
       List.exists updated ~f:Fn.id
-  | T_path path -> (
+  | T_path path ->
       let ({ comp_spec = { comp; arg }; children; _ } as view) =
         perform (Lookup_view path)
       in
-      match perform (Tree_get_dec path) with
-      | Retry | Effect -> raise Unreachable
-      | Idle -> visit children
-      | Update -> (
+      if (perform (Tree_get_dec path)).chk then (
+        perform
+          (Checkpoint { msg = "Render (visit)"; checkpoint = Render_check path });
+        let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
+        let env = Env.extend Env.empty ~id:param ~value:arg in
+        let vs, view =
+          (eval_mult |> env_h ~env |> view_h ~view |> ph_h ~ph:(P_succ path))
+            body
+        in
+        let vs = vs_of_value_exn vs in
+
+        if view.dec.eff then (
+          let children = reconcile children vs in
+          perform (Update_view (path, { view with children }));
           perform
             (Checkpoint
-               { msg = "Render (visit)"; checkpoint = Render_check path });
-          let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
-          let env = Env.extend Env.empty ~id:param ~value:arg in
-          let vs, view =
-            (eval_mult |> env_h ~env |> view_h ~view |> ph_h ~ph:(P_succ path))
-              body
-          in
-          let vs = vs_of_value_exn vs in
-
-          match view.dec with
-          | Retry | Update -> raise Unreachable
-          | Idle ->
-              let b = visit children in
-              perform (Update_view (path, view));
-              perform
-                (Checkpoint
-                   {
-                     msg = "Render canceled (visit)";
-                     checkpoint = Render_cancel path;
-                   });
-              b
-          | Effect ->
-              let children = reconcile children vs in
-              perform
-                (Update_view
-                   (path, { view with children }));
-              perform
-                (Checkpoint
-                   { msg = "Rendered (visit)"; checkpoint = Render_finish path });
-              true))
+               { msg = "Rendered (visit)"; checkpoint = Render_finish path });
+          true)
+        else
+          let b = visit children in
+          perform (Update_view (path, view));
+          perform
+            (Checkpoint
+               {
+                 msg = "Render canceled (visit)";
+                 checkpoint = Render_cancel path;
+               });
+          b)
+      else visit children
 
 let rec commit_effs (t : tree) : unit =
   Logger.commit_effs t;
@@ -483,11 +482,11 @@ let rec commit_effs (t : tree) : unit =
   | T_list ts -> List.iter ts ~f:commit_effs
   | T_path path ->
       let { children; dec; eff_q; _ } = perform (Lookup_view path) in
-      perform (Tree_set_dec (path, Idle));
+      if dec.eff then perform (Tree_set_dec (path, { dec with eff = false }));
       commit_effs children;
 
       (* Refetch the view, as committing effects of children may change it *)
-      if Decision.(dec = Effect) then
+      if dec.eff then
         Job_q.iter eff_q ~f:(fun { body; env; _ } ->
             (eval |> env_h ~env |> ph_h ~ph:P_normal) body |> ignore);
       perform

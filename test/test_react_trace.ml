@@ -1202,6 +1202,34 @@ C ()
     ~msg:"set state before bind" ~expected:"0\n0\n1\n1\n2\n1\n3\n1\n"
     ~actual:output
 
+let set_sibiling_state_during_effect () =
+  let prog =
+    parse_prog
+      {|
+let D setF =
+  let (s, setS) = useState 0 in
+  useEffect (setF (fun _ -> setS));
+  useEffect (print "D");
+  ()
+;;
+let E setS =
+  useEffect (setS (fun _ -> 42));
+  ()
+;;
+let C _ =
+  let (f, setF) = useState () in
+  if f = () then
+    [E (fun _ -> ()), D setF]
+  else
+    [E f, D (fun _ -> ())]
+;;
+C ()
+  |}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"set sibiling state during effect" ~expected:"D\nD\nD\n" ~actual:output
+
 let () =
   let open Alcotest in
   run "Interpreter"
@@ -1323,5 +1351,7 @@ let () =
           test_case "Counter Test 3" `Quick counter_test_3;
           test_case "Call setter in setter" `Quick call_setter_in_setter;
           test_case "Set state before bind" `Quick set_state_before_bind;
+          test_case "Set sibiling state during effect" `Quick
+            set_sibiling_state_during_effect;
         ] );
     ]

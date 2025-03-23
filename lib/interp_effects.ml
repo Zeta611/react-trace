@@ -27,6 +27,7 @@ type _ eff +=
   | View_lookup_st : Label.t -> (value * Job_q.t) eff
   | View_update_st : (Label.t * (value * Job_q.t)) -> unit eff
   | View_get_dec : decision eff
+  | View_add_dec : decision -> unit eff
   | View_set_dec : decision -> unit eff
   | View_enq_eff : clos -> unit eff
   | View_flush_eff : unit eff
@@ -36,6 +37,7 @@ type _ eff +=
   | Tree_lookup_st : Path.t * Label.t -> (value * Job_q.t) eff
   | Tree_update_st : (Path.t * Label.t * (value * Job_q.t)) -> unit eff
   | Tree_get_dec : Path.t -> decision eff
+  | Tree_add_dec : Path.t * decision -> unit eff
   | Tree_set_dec : Path.t * decision -> unit eff
   | Tree_flush_eff : Path.t -> unit eff
 

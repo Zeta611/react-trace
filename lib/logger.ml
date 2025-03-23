@@ -58,6 +58,10 @@ let view view = function
   | `View_get_dec ->
       Logs.debug (fun m ->
           m "view_h View_get_dec [view: %a]" Sexp.pp_hum (sexp_of_view view))
+  | `View_add_dec dec ->
+      Logs.debug (fun m ->
+          m "view_h View_add_dec [view: %a, dec: %a]" Sexp.pp_hum
+            (sexp_of_view view) Sexp.pp_hum (sexp_of_decision dec))
   | `View_set_dec dec ->
       Logs.debug (fun m ->
           m "view_h View_set_dec [view: %a, dec: %a]" Sexp.pp_hum
@@ -97,6 +101,12 @@ let treemem treemem = function
           m "treemem_h Tree_get_dec [treemem: %a, path: %a]" Sexp.pp_hum
             (Tree_mem.sexp_of_t treemem)
             Sexp.pp_hum (Path.sexp_of_t path))
+  | `Tree_add_dec (path, dec) ->
+      Logs.debug (fun m ->
+          m "treemem_h Tree_add_dec [treemem: %a, path: %a, dec: %a]"
+            Sexp.pp_hum
+            (Tree_mem.sexp_of_t treemem)
+            Sexp.pp_hum (Path.sexp_of_t path) Sexp.pp_hum (sexp_of_decision dec))
   | `Tree_set_dec (path, dec) ->
       Logs.debug (fun m ->
           m "treemem_h Tree_set_dec [treemem: %a, path: %a, dec: %a]"
