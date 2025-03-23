@@ -1,12 +1,10 @@
-let Counter x =
-  print "Counter";
+let SelfCounter x =
   let (s, setS) = useState x in
+  print s;
   useEffect (
     print "Effect";
-    if s > 0 then
-      setS (fun s -> print "Update"; 0));
+    if s < 3 then
+      setS (fun s -> s + 1));
   print "Return";
-  [s, button (fun _ ->
-    setS (fun s -> s+1);
-    setS (fun s -> print "Update"; s+1))];;
-Counter 0
+  [s];;
+SelfCounter 0
