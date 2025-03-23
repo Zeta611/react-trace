@@ -106,6 +106,11 @@ let view_h (type a b) (f : a -> b) (x : a) : view:view -> b * view =
       fun ~view ->
         Logger.view view `View_flush_eff;
         continue k () ~view:{ view with eff_q = Job_q.empty }
+  | effect View_get_comp_name, k ->
+      fun ~view ->
+        Logger.view view `View_get_comp_name;
+        let comp_name = match view.comp_spec with { comp; _ } -> Some comp in
+        continue k comp_name ~view
 
 let treemem_h (type a b) (f : a -> b) (x : a) :
     treemem:Tree_mem.t -> b * Tree_mem.t =
@@ -151,6 +156,15 @@ let treemem_h (type a b) (f : a -> b) (x : a) :
       fun ~treemem ->
         Logger.treemem treemem (`Tree_flush_eff path);
         continue k () ~treemem:(Tree_mem.flush_eff treemem ~path)
+  | effect Tree_get_comp_name path, k ->
+      fun ~treemem ->
+        Logger.treemem treemem (`Tree_get_comp_name path);
+        let comp_name =
+          match Tree_mem.lookup_view treemem ~path with
+          | { comp_spec = { comp; _ }; _ } -> Some comp
+          | exception _ -> None
+        in
+        continue k comp_name ~treemem
 
 let deftab_h (type a b) (f : a -> b) (x : a) : deftab:Def_tab.t -> b =
   match f x with
@@ -350,9 +364,16 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
   let path = perform Rd_pt in
   if (perform View_get_dec).chk then (
     let re_render = re_render + 1 in
+    let comp_name = perform View_get_comp_name in
     perform
       (Checkpoint
-         { msg = "Will retry"; checkpoint = Retry_start (re_render, path) });
+         {
+           msg =
+             Printf.sprintf "Re-rendering due to state changes (attempt %d)"
+               re_render;
+           component_name = comp_name;
+           checkpoint = Retry_start (re_render, path);
+         });
     ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr)
   else v
 
@@ -380,11 +401,23 @@ let rec init (vs : view_spec) : tree =
       in
       let vs = vs_of_value_exn vs in
       perform (Update_view (path, view));
-      perform (Checkpoint { msg = "Render"; checkpoint = Render_check path });
+      perform
+        (Checkpoint
+           {
+             msg = "Starting initial render";
+             component_name = Some comp;
+             checkpoint = Render_check path;
+           });
       let t = init vs in
       perform
         (Update_view (path, { view with dec = Decision.eff; children = t }));
-      perform (Checkpoint { msg = "Rendered"; checkpoint = Render_finish path });
+      perform
+        (Checkpoint
+           {
+             msg = "Initial render completed successfully";
+             component_name = Some comp;
+             checkpoint = Render_finish path;
+           });
       T_path path
 
 let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
@@ -409,7 +442,11 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
         Logger.update path arg;
         perform
           (Checkpoint
-             { msg = "Render (update)"; checkpoint = Render_check path });
+             {
+               msg = "Starting update render due to prop changes";
+               component_name = Some comp;
+               checkpoint = Render_check path;
+             });
         let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
         let env = Env.extend Env.empty ~id:param ~value:arg in
         let vs, view =
@@ -426,7 +463,11 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
              (path, { view with dec = Decision.eff; children = new_tree }));
         perform
           (Checkpoint
-             { msg = "Rendered (update)"; checkpoint = Render_finish path });
+             {
+               msg = "Update render completed successfully";
+               component_name = Some comp;
+               checkpoint = Render_finish path;
+             });
         T_path path)
       else init vs
   | _, vs -> init vs
@@ -444,7 +485,12 @@ let rec visit (t : tree) : bool =
       in
       if (perform (Tree_get_dec path)).chk then (
         perform
-          (Checkpoint { msg = "Render (visit)"; checkpoint = Render_check path });
+          (Checkpoint
+             {
+               msg = "Starting render due to state or prop changes";
+               component_name = Some comp;
+               checkpoint = Render_check path;
+             });
         let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
         let env = Env.extend Env.empty ~id:param ~value:arg in
         let vs, view =
@@ -458,7 +504,11 @@ let rec visit (t : tree) : bool =
           perform (Update_view (path, { view with children }));
           perform
             (Checkpoint
-               { msg = "Rendered (visit)"; checkpoint = Render_finish path });
+               {
+                 msg = "Render completed with updates";
+                 component_name = Some comp;
+                 checkpoint = Render_finish path;
+               });
           true)
         else
           let b = visit children in
@@ -466,7 +516,8 @@ let rec visit (t : tree) : bool =
           perform
             (Checkpoint
                {
-                 msg = "Render canceled (visit)";
+                 msg = "Render skipped - no changes needed";
+                 component_name = Some comp;
                  checkpoint = Render_cancel path;
                });
           b)
@@ -489,8 +540,14 @@ let rec commit_effs (t : tree) : unit =
         perform
           (Tree_set_dec
              (path, { (perform (Tree_get_dec path)) with eff = false }));
+      let comp_name = perform (Tree_get_comp_name path) in
       perform
-        (Checkpoint { msg = "After effects"; checkpoint = Effects_finish path })
+        (Checkpoint
+           {
+             msg = "Effects have been committed";
+             component_name = comp_name;
+             checkpoint = Effects_finish path;
+           })
 
 let rec top_exp : Prog.t -> Expr.hook_free_t = function
   | Expr e -> e
@@ -518,7 +575,12 @@ let step_loop i (t : tree) : unit =
     clos.body
   |> ignore;
   perform
-    (Checkpoint { msg = "After Event " ^ Int.to_string i; checkpoint = Event i })
+    (Checkpoint
+       {
+         msg = "Event handler executed";
+         component_name = None;
+         checkpoint = Event i;
+       })
 
 type 'recording run_info = {
   steps : int;
@@ -571,7 +633,8 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
               perform
                 (Checkpoint
                    {
-                     msg = "After Event " ^ Int.to_string i;
+                     msg = "Event handler executed";
+                     component_name = None;
                      checkpoint = Event i;
                    });
               step M_paint)

@@ -73,12 +73,74 @@ let event_h (type a b) (f : a -> b) (x : a) :
     recording:recording -> b * recording =
   match f x with
   | v -> fun ~recording -> (v, recording)
-  | effect Checkpoint { msg; _ }, k -> (
+  | effect Checkpoint { msg; component_name; checkpoint }, k -> (
       fun ~recording ->
         try
           let root = Option.value_exn (snd recording) in
           let box = tree root in
-          continue k () ~recording:((msg, box) :: fst recording, Some root)
+
+          (* Format message based on checkpoint type for the box *)
+          let title =
+            match (checkpoint, component_name) with
+            | Event i, _ ->
+                B.(
+                  vlist
+                    [
+                      text_with_style Style.bold (Printf.sprintf "⚡ Event %d" i);
+                      text msg;
+                    ])
+            | Retry_start (attempt, _), Some name ->
+                B.(
+                  vlist
+                    [
+                      text_with_style Style.bold
+                        (Printf.sprintf "🔁 %s (attempt %d)" name attempt);
+                      text msg;
+                    ])
+            | Render_check _, Some name ->
+                B.(
+                  vlist
+                    [
+                      text_with_style Style.bold (Printf.sprintf "🏗️ %s" name);
+                      text msg;
+                    ])
+            | Render_finish _, Some name ->
+                B.(
+                  vlist
+                    [
+                      text_with_style Style.bold (Printf.sprintf "✅ %s" name);
+                      text msg;
+                    ])
+            | Render_cancel _, Some name ->
+                B.(
+                  vlist
+                    [
+                      text_with_style Style.bold (Printf.sprintf "⏩ %s" name);
+                      text msg;
+                    ])
+            | Effects_finish _, Some name ->
+                B.(
+                  vlist
+                    [
+                      text_with_style Style.bold (Printf.sprintf "⚙️ %s" name);
+                      text msg;
+                    ])
+            | _, None -> B.text msg
+          in
+
+          (* Add the title to the box *)
+          let titled_box = B.(vlist [ title; box ]) in
+
+          (* Create a formatted message for the recording list *)
+          let formatted_msg =
+            match (checkpoint, component_name) with
+            | Event i, _ -> Printf.sprintf "Event %d: %s" i msg
+            | _, Some name -> Printf.sprintf "%s: %s" name msg
+            | _, None -> msg
+          in
+
+          continue k ()
+            ~recording:((formatted_msg, titled_box) :: fst recording, Some root)
         with _ -> continue k () ~recording)
   | effect Set_root t, k ->
       fun ~recording -> continue k () ~recording:(fst recording, Some t)

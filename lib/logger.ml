@@ -73,6 +73,10 @@ let view view = function
   | `View_flush_eff ->
       Logs.debug (fun m ->
           m "view_h View_flush_eff [view: %a]" Sexp.pp_hum (sexp_of_view view))
+  | `View_get_comp_name ->
+      Logs.debug (fun m ->
+          m "view_h View_get_comp_name [view: %a]" Sexp.pp_hum
+            (sexp_of_view view))
 
 let treemem treemem = function
   | `Ret ->
@@ -136,6 +140,11 @@ let treemem treemem = function
   | `Tree_flush_eff path ->
       Logs.debug (fun m ->
           m "treemem_h Tree_flush_eff [treemem: %a, path: %a]" Sexp.pp_hum
+            (Tree_mem.sexp_of_t treemem)
+            Sexp.pp_hum (Path.sexp_of_t path))
+  | `Tree_get_comp_name path ->
+      Logs.debug (fun m ->
+          m "treemem_h Tree_get_comp_name [treemem: %a, path: %a]" Sexp.pp_hum
             (Tree_mem.sexp_of_t treemem)
             Sexp.pp_hum (Path.sexp_of_t path))
 

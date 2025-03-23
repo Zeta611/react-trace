@@ -31,6 +31,7 @@ type _ eff +=
   | View_set_dec : decision -> unit eff
   | View_enq_eff : clos -> unit eff
   | View_flush_eff : unit eff
+  | View_get_comp_name : Id.t option eff
 
 (* tree memory effects in eval/eval_mult *)
 type _ eff +=
@@ -40,6 +41,7 @@ type _ eff +=
   | Tree_add_dec : Path.t * decision -> unit eff
   | Tree_set_dec : Path.t * decision -> unit eff
   | Tree_flush_eff : Path.t -> unit eff
+  | Tree_get_comp_name : Path.t -> Id.t option eff
 
 (* tree memory effects in render *)
 type _ eff +=
@@ -67,7 +69,13 @@ type checkpoint =
   | Effects_finish of Path.t
   | Event of int
 
-type _ eff += Checkpoint : { msg : string; checkpoint : checkpoint } -> unit eff
+type _ eff +=
+  | Checkpoint : {
+      msg : string;
+      component_name : string option;
+      checkpoint : checkpoint;
+    }
+      -> unit eff
 
 (* For testing nontermination *)
 type _ eff += Re_render_limit : int eff
