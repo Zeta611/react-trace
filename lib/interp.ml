@@ -109,8 +109,7 @@ let view_h (type a b) (f : a -> b) (x : a) : view:view -> b * view =
   | effect View_get_comp_name, k ->
       fun ~view ->
         Logger.view view `View_get_comp_name;
-        let comp_name = match view.comp_spec with { comp; _ } -> Some comp in
-        continue k comp_name ~view
+        continue k view.comp_spec.comp ~view
 
 let treemem_h (type a b) (f : a -> b) (x : a) :
     treemem:Tree_mem.t -> b * Tree_mem.t =
@@ -159,11 +158,8 @@ let treemem_h (type a b) (f : a -> b) (x : a) :
   | effect Tree_get_comp_name path, k ->
       fun ~treemem ->
         Logger.treemem treemem (`Tree_get_comp_name path);
-        let comp_name =
-          match Tree_mem.lookup_view treemem ~path with
-          | { comp_spec = { comp; _ }; _ } -> Some comp
-          | exception _ -> None
-        in
+        let view = Tree_mem.lookup_view treemem ~path in
+        let comp_name = view.comp_spec.comp in
         continue k comp_name ~treemem
 
 let deftab_h (type a b) (f : a -> b) (x : a) : deftab:Def_tab.t -> b =
@@ -365,13 +361,12 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
   if (perform View_get_dec).chk then (
     let re_render = re_render + 1 in
     let comp_name = perform View_get_comp_name in
+    let decision = perform View_get_dec in
     perform
       (Checkpoint
          {
-           msg =
-             Printf.sprintf "Re-rendering due to state changes (attempt %d)"
-               re_render;
-           component_name = comp_name;
+           msg = "Retrying due to state changes";
+           component_info = Some (comp_name, decision);
            checkpoint = Retry_start (re_render, path);
          });
     ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr)
@@ -404,8 +399,8 @@ let rec init (vs : view_spec) : tree =
       perform
         (Checkpoint
            {
-             msg = "Starting initial render";
-             component_name = Some comp;
+             msg = "Starting initialization";
+             component_info = Some (comp, Decision.idle);
              checkpoint = Render_check path;
            });
       let t = init vs in
@@ -414,8 +409,8 @@ let rec init (vs : view_spec) : tree =
       perform
         (Checkpoint
            {
-             msg = "Initial render completed successfully";
-             component_name = Some comp;
+             msg = "Initialization completed successfully";
+             component_info = Some (comp, Decision.eff);
              checkpoint = Render_finish path;
            });
       T_path path
@@ -444,7 +439,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
           (Checkpoint
              {
                msg = "Starting update render due to prop changes";
-               component_name = Some comp;
+               component_info = Some (comp, Decision.idle);
                checkpoint = Render_check path;
              });
         let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
@@ -465,19 +460,19 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
           (Checkpoint
              {
                msg = "Update render completed successfully";
-               component_name = Some comp;
+               component_info = Some (comp, Decision.eff);
                checkpoint = Render_finish path;
              });
         T_path path)
       else init vs
   | _, vs -> init vs
 
-let rec visit (t : tree) : bool =
-  Logger.visit t;
+let rec check (t : tree) : bool =
+  Logger.check t;
   match t with
   | T_const _ | T_clos _ -> false
   | T_list ts ->
-      let updated = List.map ts ~f:visit in
+      let updated = List.map ts ~f:check in
       List.exists updated ~f:Fn.id
   | T_path path ->
       let ({ comp_spec = { comp; arg }; children; _ } as view) =
@@ -488,7 +483,7 @@ let rec visit (t : tree) : bool =
           (Checkpoint
              {
                msg = "Starting render due to state or prop changes";
-               component_name = Some comp;
+               component_info = Some (comp, perform (Tree_get_dec path));
                checkpoint = Render_check path;
              });
         let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
@@ -506,22 +501,22 @@ let rec visit (t : tree) : bool =
             (Checkpoint
                {
                  msg = "Render completed with updates";
-                 component_name = Some comp;
+                 component_info = Some (comp, view.dec);
                  checkpoint = Render_finish path;
                });
           true)
         else
-          let b = visit children in
+          let b = check children in
           perform (Update_view (path, view));
           perform
             (Checkpoint
                {
                  msg = "Render skipped - no changes needed";
-                 component_name = Some comp;
+                 component_info = Some (comp, view.dec);
                  checkpoint = Render_cancel path;
                });
           b)
-      else visit children
+      else check children
 
 let rec commit_effs (t : tree) : unit =
   Logger.commit_effs t;
@@ -541,11 +536,12 @@ let rec commit_effs (t : tree) : unit =
           (Tree_set_dec
              (path, { (perform (Tree_get_dec path)) with eff = false }));
       let comp_name = perform (Tree_get_comp_name path) in
+      let dec = perform (Tree_get_dec path) in
       perform
         (Checkpoint
            {
              msg = "Effects have been committed";
-             component_name = comp_name;
+             component_info = Some (comp_name, dec);
              checkpoint = Effects_finish path;
            })
 
@@ -578,7 +574,7 @@ let step_loop i (t : tree) : unit =
     (Checkpoint
        {
          msg = "Event handler executed";
-         component_name = None;
+         component_info = None;
          checkpoint = Event i;
        })
 
@@ -607,8 +603,8 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
     perform (Set_root root);
     let rec step = function
       | M_paint ->
-          Logs.info (fun m -> m "Step visit %d" (!cnt + 1));
-          if visit root then (
+          Logs.info (fun m -> m "Step check %d" (!cnt + 1));
+          if check root then (
             Int.incr cnt;
             match fuel with Some n when !cnt >= n -> () | _ -> step M_react)
           else step M_eloop
@@ -634,7 +630,7 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
                 (Checkpoint
                    {
                      msg = "Event handler executed";
-                     component_name = None;
+                     component_info = None;
                      checkpoint = Event i;
                    });
               step M_paint)

@@ -104,7 +104,7 @@ let event_h (type a b) (f : a -> b) (x : a) :
   | effect Set_root t, k ->
       fun ~recording ->
         continue k () ~recording:{ recording with root = Some t }
-  | effect Checkpoint { msg; component_name; checkpoint }, k ->
+  | effect Checkpoint { msg; component_info; checkpoint }, k ->
       fun ~recording ->
         let pt = get_path_from_checkpoint checkpoint in
 
@@ -115,23 +115,29 @@ let event_h (type a b) (f : a -> b) (x : a) :
               ~f:(fun p -> Sexp.to_string (Path.sexp_of_t p))
               ~default:""
           in
-          match (checkpoint, component_name) with
-          | Event i, _ -> Printf.sprintf "⚡ Event %d triggered: %s" i msg
-          | Retry_start (attempt, _), Some name ->
-              Printf.sprintf "🔁 [%s] Component '%s': %s (attempt %d)" path_str
-                name msg attempt
-          | Render_check _, Some name ->
-              Printf.sprintf "🏗️ [%s] Component '%s': %s" path_str name msg
-          | Render_finish _, Some name ->
-              Printf.sprintf "✅ [%s] Component '%s': %s" path_str name msg
-          | Render_cancel _, Some name ->
-              Printf.sprintf "⏩ [%s] Component '%s': %s" path_str name msg
-          | Effects_finish _, Some name ->
-              Printf.sprintf "⚙️ [%s] Component '%s': %s" path_str name msg
+          match (checkpoint, component_info) with
+          | Event i, _ -> Printf.sprintf ":event: Event %d triggered: %s" i msg
+          | Retry_start (attempt, _), Some (name, dec) ->
+              Printf.sprintf
+                ":retry: [%s] Component '%s' {chk:%b; eff:%b}: %s (attempt %d)"
+                path_str name dec.chk dec.eff msg attempt
+          | Render_check _, Some (name, dec) ->
+              Printf.sprintf ":check: [%s] Component '%s' {chk:%b; eff:%b}: %s"
+                path_str name dec.chk dec.eff msg
+          | Render_finish _, Some (name, dec) ->
+              Printf.sprintf ":finish: [%s] Component '%s' {chk:%b; eff:%b}: %s"
+                path_str name dec.chk dec.eff msg
+          | Render_cancel _, Some (name, dec) ->
+              Printf.sprintf ":cancel: [%s] Component '%s' {chk:%b; eff:%b}: %s"
+                path_str name dec.chk dec.eff msg
+          | Effects_finish _, Some (name, dec) ->
+              Printf.sprintf
+                ":effects: [%s] Component '%s' {chk:%b; eff:%b}: %s" path_str
+                name dec.chk dec.eff msg
           | _, None ->
               (* This shouldn't happen unless we missed a component name
                  somewhere *)
-              Printf.sprintf "🔄 [%s] %s" path_str msg
+              Printf.sprintf ":default: [%s] %s" path_str msg
         in
         let root = Option.value ~default:(T_const Unit) recording.root in
         let tree = tree root in

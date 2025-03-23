@@ -73,7 +73,7 @@ let event_h (type a b) (f : a -> b) (x : a) :
     recording:recording -> b * recording =
   match f x with
   | v -> fun ~recording -> (v, recording)
-  | effect Checkpoint { msg; component_name; checkpoint }, k -> (
+  | effect Checkpoint { msg; component_info; checkpoint }, k -> (
       fun ~recording ->
         try
           let root = Option.value_exn (snd recording) in
@@ -81,7 +81,7 @@ let event_h (type a b) (f : a -> b) (x : a) :
 
           (* Format message based on checkpoint type for the box *)
           let title =
-            match (checkpoint, component_name) with
+            match (checkpoint, component_info) with
             | Event i, _ ->
                 B.(
                   vlist
@@ -89,40 +89,49 @@ let event_h (type a b) (f : a -> b) (x : a) :
                       text_with_style Style.bold (Printf.sprintf "⚡ Event %d" i);
                       text msg;
                     ])
-            | Retry_start (attempt, _), Some name ->
+            | Retry_start (attempt, _), Some (name, dec) ->
                 B.(
                   vlist
                     [
                       text_with_style Style.bold
-                        (Printf.sprintf "🔁 %s (attempt %d)" name attempt);
+                        (Printf.sprintf "🔁 %s (chk:%b,eff:%b) (attempt %d)" name
+                           dec.chk dec.eff attempt);
                       text msg;
                     ])
-            | Render_check _, Some name ->
+            | Render_check _, Some (name, dec) ->
                 B.(
                   vlist
                     [
-                      text_with_style Style.bold (Printf.sprintf "🏗️ %s" name);
+                      text_with_style Style.bold
+                        (Printf.sprintf "🏗️ %s (chk:%b,eff:%b)" name dec.chk
+                           dec.eff);
                       text msg;
                     ])
-            | Render_finish _, Some name ->
+            | Render_finish _, Some (name, dec) ->
                 B.(
                   vlist
                     [
-                      text_with_style Style.bold (Printf.sprintf "✅ %s" name);
+                      text_with_style Style.bold
+                        (Printf.sprintf "✅ %s (chk:%b,eff:%b)" name dec.chk
+                           dec.eff);
                       text msg;
                     ])
-            | Render_cancel _, Some name ->
+            | Render_cancel _, Some (name, dec) ->
                 B.(
                   vlist
                     [
-                      text_with_style Style.bold (Printf.sprintf "⏩ %s" name);
+                      text_with_style Style.bold
+                        (Printf.sprintf "⏩ %s (chk:%b,eff:%b)" name dec.chk
+                           dec.eff);
                       text msg;
                     ])
-            | Effects_finish _, Some name ->
+            | Effects_finish _, Some (name, dec) ->
                 B.(
                   vlist
                     [
-                      text_with_style Style.bold (Printf.sprintf "⚙️ %s" name);
+                      text_with_style Style.bold
+                        (Printf.sprintf "⚙️ %s (chk:%b,eff:%b)" name dec.chk
+                           dec.eff);
                       text msg;
                     ])
             | _, None -> B.text msg
@@ -133,9 +142,10 @@ let event_h (type a b) (f : a -> b) (x : a) :
 
           (* Create a formatted message for the recording list *)
           let formatted_msg =
-            match (checkpoint, component_name) with
+            match (checkpoint, component_info) with
             | Event i, _ -> Printf.sprintf "Event %d: %s" i msg
-            | _, Some name -> Printf.sprintf "%s: %s" name msg
+            | _, Some (name, dec) ->
+                Printf.sprintf "%s (chk:%b,eff:%b): %s" name dec.chk dec.eff msg
             | _, None -> msg
           in
 

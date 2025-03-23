@@ -192,7 +192,7 @@ let update path arg =
       m "update [path: %a, arg: %a]" Sexp.pp (Path.sexp_of_t path) Sexp.pp
         (sexp_of_value arg))
 
-let visit t = Logs.debug (fun m -> m "visit [t: %a]" Sexp.pp (sexp_of_tree t))
+let check t = Logs.debug (fun m -> m "check [t: %a]" Sexp.pp (sexp_of_tree t))
 
 let reconcile old_tree vs =
   Logs.debug (fun m ->
