@@ -14,5 +14,3 @@ let event_h (type a b) (f : a -> b) (x : a) :
   | effect Checkpoint _, k -> fun ~recording -> continue k () ~recording
   | effect Set_root t, k ->
       fun ~recording:_ -> continue k () ~recording:(Some t)
-  | effect Get_root, k ->
-      fun ~recording -> continue k (Option.value_exn recording) ~recording

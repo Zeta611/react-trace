@@ -101,6 +101,9 @@ let event_h (type a b) (f : a -> b) (x : a) :
           }
         in
         continue k path ~recording
+  | effect Set_root t, k ->
+      fun ~recording ->
+        continue k () ~recording:{ recording with root = Some t }
   | effect Checkpoint { msg; checkpoint }, k ->
       fun ~recording ->
         let pt = get_path_from_checkpoint checkpoint in
@@ -109,7 +112,7 @@ let event_h (type a b) (f : a -> b) (x : a) :
             (Sexp.to_string ([%sexp_of: Path.t option] pt))
             msg
         in
-        let root = perform Get_root in
+        let root = Option.value_exn recording.root in
         let tree = tree root in
         let recording =
           {
