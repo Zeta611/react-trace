@@ -348,7 +348,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
    with Stdlib.Effect.Unhandled Re_render_limit -> ());
 
   perform View_flush_eff;
-  perform (View_set_dec Decision.idle);
+  perform (View_set_dec { (perform View_get_dec) with chk = false });
   let v = eval expr in
   let path = perform Rd_pt in
   if (perform View_get_dec).chk then (
@@ -482,13 +482,13 @@ let rec commit_effs (t : tree) : unit =
   | T_list ts -> List.iter ts ~f:commit_effs
   | T_path path ->
       let { children; dec; eff_q; _ } = perform (Lookup_view path) in
-      if dec.eff then perform (Tree_set_dec (path, { dec with eff = false }));
       commit_effs children;
 
       (* Refetch the view, as committing effects of children may change it *)
       if dec.eff then
         Job_q.iter eff_q ~f:(fun { body; env; _ } ->
             (eval |> env_h ~env |> ph_h ~ph:P_normal) body |> ignore);
+      if dec.eff then perform (Tree_set_dec (path, { (perform (Tree_get_dec path)) with eff = false }));
       perform
         (Checkpoint { msg = "After effects"; checkpoint = Effects_finish path })
 
