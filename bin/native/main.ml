@@ -89,7 +89,7 @@ let () =
               ~recorder:(module Report_box_recorder)
               prog
           in
-          recording |> List.rev
+          fst recording |> List.rev
           |> List.iter ~f:(fun (msg, box) ->
                  Logs.info (fun m -> m "%s:\n" msg);
                  PrintBox_text.output Stdio.stdout box;

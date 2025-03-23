@@ -57,7 +57,7 @@ type _ eff += Print : string -> unit eff
 type _ eff += Listen : int option eff
 
 (* tree memory effects for instrumentation *)
-type _ eff += Get_root_pt : Path.t eff
+type _ eff += Set_root : tree -> unit eff | Get_root : tree eff
 
 type checkpoint =
   | Retry_start of (int * Path.t)

@@ -8,7 +8,7 @@ open Concrete_domains
 include Recorder_intf
 module B = PrintBox
 
-type recording = (string * B.t) list
+type recording = (string * B.t) list * tree option
 
 let align ?(h = `Center) ?(v = `Center) = B.align ~h ~v
 let bold_text = B.(text_with_style Style.bold)
@@ -67,7 +67,7 @@ and path (pt : Path.t) : B.t =
   let children = tree children in
   B.(vlist [ part_view_box; children ] |> frame)
 
-let emp_recording = []
+let emp_recording = ([], None)
 
 let event_h (type a b) (f : a -> b) (x : a) :
     recording:recording -> b * recording =
@@ -76,7 +76,9 @@ let event_h (type a b) (f : a -> b) (x : a) :
   | effect Checkpoint { msg; _ }, k -> (
       fun ~recording ->
         try
-          let root = perform Get_root_pt in
-          let box = path root in
-          continue k () ~recording:((msg, box) :: recording)
+          let root = Option.value_exn (snd recording) in
+          let box = tree root in
+          continue k () ~recording:((msg, box) :: fst recording, Some root)
         with _ -> continue k () ~recording)
+  | effect Set_root t, k ->
+      fun ~recording -> continue k () ~recording:(fst recording, Some t)

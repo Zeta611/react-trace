@@ -151,9 +151,6 @@ let treemem_h (type a b) (f : a -> b) (x : a) :
       fun ~treemem ->
         Logger.treemem treemem (`Tree_flush_eff path);
         continue k () ~treemem:(Tree_mem.flush_eff treemem ~path)
-  (* NOTE: instrumentation *)
-  | effect Get_root_pt, k ->
-      fun ~treemem -> continue k (Tree_mem.root_pt treemem) ~treemem
 
 let deftab_h (type a b) (f : a -> b) (x : a) : deftab:Def_tab.t -> b =
   match f x with
@@ -488,7 +485,10 @@ let rec commit_effs (t : tree) : unit =
       if dec.eff then
         Job_q.iter eff_q ~f:(fun { body; env; _ } ->
             (eval |> env_h ~env |> ph_h ~ph:P_normal) body |> ignore);
-      if dec.eff then perform (Tree_set_dec (path, { (perform (Tree_get_dec path)) with eff = false }));
+      if dec.eff then
+        perform
+          (Tree_set_dec
+             (path, { (perform (Tree_get_dec path)) with eff = false }));
       perform
         (Checkpoint { msg = "After effects"; checkpoint = Effects_finish path })
 
@@ -542,6 +542,7 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
 
     let vs = top_exp |> eval |> vs_of_value_exn in
     let root = init vs in
+    perform (Set_root root);
     let rec step = function
       | M_paint ->
           Logs.info (fun m -> m "Step visit %d" (!cnt + 1));

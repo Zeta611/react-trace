@@ -19,9 +19,15 @@ let get_path_from_checkpoint = function
 
 type tree = { path : string; name : string; children : tree list }
 and view = { msg : string; tree : tree }
-and recording = { checkpoints : view list; log : string } [@@deriving yojson_of]
 
-let emp_recording = { checkpoints = []; log = "" }
+and recording = {
+  checkpoints : view list;
+  root : (Concrete_domains.tree[@yojson.opaque]) option;
+  log : string;
+}
+[@@deriving yojson_of]
+
+let emp_recording = { checkpoints = []; root = None; log = "" }
 
 let leaf : const -> tree = function
   | Unit -> { path = ""; name = "()"; children = [] }
@@ -103,8 +109,8 @@ let event_h (type a b) (f : a -> b) (x : a) :
             (Sexp.to_string ([%sexp_of: Path.t option] pt))
             msg
         in
-        let root = perform Get_root_pt in
-        let tree = path root in
+        let root = perform Get_root in
+        let tree = tree root in
         let recording =
           {
             recording with
