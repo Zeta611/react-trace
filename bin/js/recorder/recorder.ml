@@ -112,7 +112,7 @@ let event_h (type a b) (f : a -> b) (x : a) :
             (Sexp.to_string ([%sexp_of: Path.t option] pt))
             msg
         in
-        let root = Option.value_exn recording.root in
+        let root = Option.value ~default:(T_const Unit) recording.root in
         let tree = tree root in
         let recording =
           {
