@@ -307,20 +307,32 @@ let rec eval : type a. a Expr.t -> value =
         | Eq, Const Unit, Const Unit -> Bool true
         | Eq, Const (Bool b1), Const (Bool b2) -> Bool Bool.(b1 = b2)
         | Eq, Const (Int i1), Const (Int i2) -> Bool (i1 = i2)
+        | Eq, Const (String s1), Const (String s2) -> Bool String.(s1 = s2)
         | Eq, _, _ -> Bool false
         | Lt, Const (Int i1), Const (Int i2) -> Bool (i1 < i2)
+        | Lt, Const (String s1), Const (String s2) -> Bool String.(s1 < s2)
         | Gt, Const (Int i1), Const (Int i2) -> Bool (i1 > i2)
+        | Gt, Const (String s1), Const (String s2) -> Bool String.(s1 > s2)
         | Le, Const (Int i1), Const (Int i2) -> Bool (i1 <= i2)
+        | Le, Const (String s1), Const (String s2) -> Bool String.(s1 <= s2)
         | Ge, Const (Int i1), Const (Int i2) -> Bool (i1 >= i2)
+        | Ge, Const (String s1), Const (String s2) -> Bool String.(s1 >= s2)
         | Ne, Const Unit, Const Unit -> Bool false
         | Ne, Const (Bool b1), Const (Bool b2) -> Bool Bool.(b1 <> b2)
         | Ne, Const (Int i1), Const (Int i2) -> Bool (i1 <> i2)
+        | Ne, Const (String s1), Const (String s2) -> Bool String.(s1 <> s2)
         | Ne, _, _ -> Bool true
         | And, Const (Bool b1), Const (Bool b2) -> Bool (b1 && b2)
         | Or, Const (Bool b1), Const (Bool b2) -> Bool (b1 || b2)
         | Plus, Const (Int i1), Const (Int i2) -> Int (i1 + i2)
+        | Plus, Const (String s1), Const (String s2) -> String (s1 ^ s2)
+        | Plus, Const (String s1), Const (Int i2) ->
+            (* I know XD *)
+            String (s1 ^ Int.to_string i2)
         | Minus, Const (Int i1), Const (Int i2) -> Int (i1 - i2)
         | Times, Const (Int i1), Const (Int i2) -> Int (i1 * i2)
+        | Times, Const (String s1), Const (Int i2) ->
+            String (String.concat (List.init i2 ~f:(fun _ -> s1)))
         | Div, Const (Int i1), Const (Int i2) -> Int (i1 / i2)
         | Mod, Const (Int i1), Const (Int i2) -> Int (Int.rem i1 i2)
         | _, _, _ -> raise Type_error
