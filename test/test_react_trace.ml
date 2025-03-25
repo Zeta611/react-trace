@@ -692,7 +692,7 @@ let no_side_effect () =
     parse_prog {|
 let C x =
   let (s, setS) = useState 42 in
-  [()]
+  ()
 ;;
 C ()
 |}
@@ -700,14 +700,14 @@ C ()
   let steps = run prog in
   Alcotest.(check' int) ~msg:"step one time" ~expected:1 ~actual:steps
 
-let set_in_body_nonterminate () =
+let set_in_body_unguarded_nonterminate () =
   let prog =
     parse_prog
       {|
 let C x =
   let (s, setS) = useState 42 in
   setS (fun s -> 43);
-  [()]
+  ()
 ;;
 C ()
 |}
@@ -718,13 +718,63 @@ C ()
   Alcotest.(check_raises)
     "retry indefintely" Interp_effects.Too_many_re_renders run
 
-let set_in_body_guarded () =
+let set_in_body_guarded_no_rerender () =
   let prog =
     parse_prog
       {|
 let C x =
   let (s, setS) = useState 42 in
   if s = 42 then setS (fun s -> 43);
+  ()
+;;
+C ()
+|}
+  in
+  let steps = run prog in
+  Alcotest.(check' int) ~msg:"step one time" ~expected:1 ~actual:steps
+
+let set_in_body_guarded_reread_count () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  print "C";
+  let (s, setS) = useState 42 in
+  if s = 42 then setS (fun s -> 43);
+  ()
+;;
+C ()
+|}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string) ~msg:"retries once" ~expected:"C\nC\n" ~actual:output
+
+let set_in_body_guarded_reread_count2 () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  print "C";
+  let (s, setS) = useState 0 in
+  if s < 25 then setS (fun s -> s+1);
+  ()
+;;
+C ()
+|}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"retries 25 times"
+    ~expected:(String.concat ~sep:"\n" (List.init 26 ~f:(fun _ -> "C")) ^ "\n")
+    ~actual:output
+
+let no_set_in_effect_step_one_time () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  let (s, setS) = useState 42 in
+  useEffect ();
   [()]
 ;;
 C ()
@@ -746,7 +796,7 @@ C ()
 |}
   in
   let steps = run prog in
-  Alcotest.(check' int) ~msg:"step two times" ~expected:1 ~actual:steps
+  Alcotest.(check' int) ~msg:"step one time" ~expected:1 ~actual:steps
 
 let set_in_effect_step_two_times () =
   let prog =
@@ -807,21 +857,6 @@ C ()
   in
   let steps = run prog in
   Alcotest.(check' int) ~msg:"step five times" ~expected:5 ~actual:steps
-
-let set_in_effect_with_arg_step_one_time () =
-  let prog =
-    parse_prog
-      {|
-let C x =
-  let (s, setS) = useState 42 in
-  useEffect (if s <> x then setS (fun s -> x));
-  [()]
-;;
-C 42
-|}
-  in
-  let steps = run prog in
-  Alcotest.(check' int) ~msg:"step one time" ~expected:1 ~actual:steps
 
 let set_in_effect_with_arg_step_two_times () =
   let prog =
@@ -1202,7 +1237,7 @@ C ()
     ~msg:"set state before bind" ~expected:"0\n0\n1\n1\n2\n1\n3\n1\n"
     ~actual:output
 
-let set_sibiling_state_during_effect () =
+let set_sibling_state_during_effect () =
   let prog =
     parse_prog
       {|
@@ -1288,14 +1323,20 @@ let () =
           test_case "useEffect" `Quick js_use_effect;
           test_case "useEffect with expression" `Quick js_use_effect_expr;
         ] );
-      ( "steps",
+      ( "React-tRace",
         [
           test_case "No re-render when side effect is absent" `Quick
             no_side_effect;
           test_case "Infinite retries when top-level setter is unguarded" `Quick
-            set_in_body_nonterminate;
+            set_in_body_unguarded_nonterminate;
           test_case "No re-render when top-level setter is guarded" `Quick
-            set_in_body_guarded;
+            set_in_body_guarded_no_rerender;
+          test_case "Retry when setter called during evaluation" `Quick
+            set_in_body_guarded_reread_count;
+          test_case "Retry when setter called during evaluation (2)" `Quick
+            set_in_body_guarded_reread_count2;
+          test_case "No re-render when setter is not called in useEffect" `Quick
+            no_set_in_effect_step_one_time;
           test_case
             "No re-render when identity setter is called in useEffect (1)"
             `Quick set_in_effect_step_one_time;
@@ -1309,9 +1350,6 @@ let () =
             `Quick set_in_effect_guarded_step_two_times;
           test_case "Re-render 5 times when setter is called in useEffect (3)"
             `Quick set_in_effect_guarded_step_n_times;
-          test_case
-            "No re-render when identity setter is called in useEffect (2)"
-            `Quick set_in_effect_with_arg_step_one_time;
           test_case "Re-render 1 time when setter is called in useEffect (4)"
             `Quick set_in_effect_with_arg_step_two_times;
           test_case "Re-render 1 time when setter is called in useEffect (5)"
@@ -1337,9 +1375,6 @@ let () =
             `Quick set_in_effect_guarded_step_n_times_with_obj;
           test_case "No re-render when no setter is called in useEffect" `Quick
             updating_obj_without_set_does_not_rerender;
-        ] );
-      ( "side effects",
-        [
           test_case "Flush effect queue on retry" `Quick
             effect_queue_gets_flushed_on_retry;
           test_case "Idle child's effects are run when parent re-renders" `Quick
@@ -1351,7 +1386,7 @@ let () =
           test_case "Counter Test 3" `Quick counter_test_3;
           test_case "Call setter in setter" `Quick call_setter_in_setter;
           test_case "Set state before bind" `Quick set_state_before_bind;
-          test_case "Set sibiling state during effect" `Quick
-            set_sibiling_state_during_effect;
+          test_case "Set sibling state during effect" `Quick
+            set_sibling_state_during_effect;
         ] );
     ]
