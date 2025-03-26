@@ -77,6 +77,8 @@ Tests can be run with:
 dune runtest
 ```
 
+The corresponding React/JS tests are available [here](https://anonymous.4open.science/r/react-trace-testsuites-2AF8/README.md).
+
 ## Command Line Options
 
 React-tRace supports several command-line options:
