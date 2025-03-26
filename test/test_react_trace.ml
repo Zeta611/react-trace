@@ -1324,6 +1324,32 @@ C ()
   Alcotest.(check' string)
     ~msg:"set sibiling state during effect" ~expected:"D\nD\nD\n" ~actual:output
 
+let parent_child () =
+  let prog =
+    parse_prog
+      {|
+let Child _ =
+  useEffect (print "C");
+  ["C"]
+;;
+let Parent _ =
+  let (s, setS) = useState 0 in
+  useEffect (
+    print "P";
+    if s < 10 then setS (fun s -> s + 1)
+  );
+  [[s], Child ()]
+;;
+Parent ()
+  |}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"parent child"
+    ~expected:
+      "C\nP\nC\nP\nC\nP\nC\nP\nC\nP\nC\nP\nC\nP\nC\nP\nC\nP\nC\nP\nC\nP\n"
+    ~actual:output
+
 let abc () =
   let prog =
     parse_prog
@@ -1501,5 +1527,6 @@ let () =
           test_case "ABC view" `Quick abc;
           test_case "Chain view" `Quick chain;
           test_case "Binary tree" `Quick binary;
+          test_case "Parent child" `Quick parent_child;
         ] );
     ]
