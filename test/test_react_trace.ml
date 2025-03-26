@@ -34,6 +34,35 @@ let run_event_output ~event_q prog =
   in
   output
 
+let run_tree_output prog =
+  let open Interp in
+  let { treemem; _ } =
+    run ~fuel:max_fuel
+      ~recorder:(module Default_recorder)
+      ~event_q_handler:(Default_event_q.event_h ~event_q:[])
+      prog
+  in
+  let open Concrete_domains in
+  let leaf : const -> string = function
+    | Unit -> "()"
+    | Bool b -> Bool.to_string b
+    | Int i -> Int.to_string i
+    | String s -> s
+  in
+
+  let rec tree : tree -> string list = function
+    | T_const k -> [ leaf k ]
+    | T_clos _ -> []
+    | T_list l -> list l
+    | T_path p -> path p
+  and list (ts : tree list) : string list = List.concat_map ~f:tree ts
+  and path (pt : Path.t) : string list =
+    let { children; _ } = Tree_mem.lookup_view treemem ~path:pt in
+    tree children
+  in
+  let root = Tree_mem.root_pt treemem in
+  path root
+
 let parse_prog s =
   let lexbuf = Lexing.from_string s in
   Parser.prog Lexer.read lexbuf
@@ -1106,6 +1135,36 @@ E ()
     ~msg:"effects run in correct order"
     ~expected:"0\n1\n2\nD\n3\nE\n0\n1\n2\nD\n" ~actual:output
 
+let button () =
+  let prog = parse_prog {|
+let C x =
+  button (fun _ -> print "B")
+;;
+C ()
+|} in
+  let output = run_event_output ~event_q:[ 0; 0; 0 ] prog in
+  Alcotest.(check' string)
+    ~msg:"button works" ~expected:"B\nB\nB\n" ~actual:output
+
+let button_state () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  print "C";
+  let (s, setS) = useState 0 in
+  [button (fun _ -> print "B"; setS (fun s -> print s; s + 1)), s]
+;;
+C ()
+|}
+  in
+  let output = run_event_output ~event_q:[ 0; 0; 0 ] prog in
+  (* NOTE: React actually prints "C\nB\n0\nC\nB\nC\n1\nB\nC\n2\n" due to
+     optimization. *)
+  Alcotest.(check' string)
+    ~msg:"button with state works" ~expected:"C\nB\nC\n0\nB\nC\n1\nB\nC\n2\n"
+    ~actual:output
+
 let event_handler_prints () =
   let prog =
     parse_prog
@@ -1265,6 +1324,56 @@ C ()
   Alcotest.(check' string)
     ~msg:"set sibiling state during effect" ~expected:"D\nD\nD\n" ~actual:output
 
+let abc () =
+  let prog =
+    parse_prog
+      {|
+let C _ = ["C"] ;;
+let B _ = ["B", C ()] ;;
+let A _ = ["A", B ()] ;;
+A ()
+|}
+  in
+  let output = run_tree_output prog in
+  Alcotest.(check' (list string))
+    ~msg:"ABC view" ~expected:[ "A"; "B"; "C" ] ~actual:output
+
+let chain () =
+  let prog =
+    parse_prog
+      {|
+let C n =
+  if n <= 0 then
+    [0]
+  else
+    [n, C (n - 1)]
+;;
+C 5
+|}
+  in
+  let output = run_tree_output prog in
+  Alcotest.(check' (list string))
+    ~msg:"chain view"
+    ~expected:[ "5"; "4"; "3"; "2"; "1"; "0" ]
+    ~actual:output
+
+let binary () =
+  let prog =
+    parse_prog
+      {|
+let C n =
+  if n <= 0 then
+    [0]
+  else
+    [C (n - 1), C (n - 1)]
+;;
+C 3
+|}
+  in
+  let output = run_tree_output prog in
+  Alcotest.(check' int)
+    ~msg:"binary tree" ~expected:8 ~actual:(List.length output)
+
 let () =
   let open Alcotest in
   run "Interpreter"
@@ -1364,12 +1473,9 @@ let () =
             "No re-render when setters compose to an identity are called in \
              useEffect"
             `Quick set_in_effect_twice_step_one_time;
-          (* TODO: This should probably be tested in the reconciliation suite *)
           test_case "Set in removed child should step two times" `Quick
             set_in_removed_child_step_two_times;
-          (* TODO: This should probably be tested in the reconciliation suite *)
           test_case "Same child gets persisted" `Quick state_persists_in_child;
-          (* TODO: This should probably be tested in the reconciliation suite *)
           test_case "New child steps again" `Quick new_child_steps_again;
           test_case "Re-render 5 times when setter is called in useEffect (6)"
             `Quick set_in_effect_guarded_step_n_times_with_obj;
@@ -1380,6 +1486,10 @@ let () =
           test_case "Idle child's effects are run when parent re-renders" `Quick
             child_view_effect_runs_even_idle_but_parent_rerenders;
           test_case "Nested view render order" `Quick nested_view_render_order;
+          test_case "Button works" `Quick button;
+          (* NOTE: button_state behaves different due to React's
+             optimization. *)
+          test_case "Button with state works" `Quick button_state;
           test_case "Event handler prints" `Quick event_handler_prints;
           test_case "Counter Test 1" `Quick counter_test_1;
           test_case "Counter Test 2" `Quick counter_test_2;
@@ -1388,5 +1498,8 @@ let () =
           test_case "Set state before bind" `Quick set_state_before_bind;
           test_case "Set sibling state during effect" `Quick
             set_sibling_state_during_effect;
+          test_case "ABC view" `Quick abc;
+          test_case "Chain view" `Quick chain;
+          test_case "Binary tree" `Quick binary;
         ] );
     ]
