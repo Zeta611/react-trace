@@ -1460,73 +1460,79 @@ let () =
         ] );
       ( "React-tRace",
         [
-          test_case "No re-render when side effect is absent" `Quick
+          test_case "No re-render when side effect is absent (S1)" `Quick
             no_side_effect;
-          test_case "Infinite retries when top-level setter is unguarded" `Quick
-            set_in_body_unguarded_nonterminate;
-          test_case "No re-render when top-level setter is guarded" `Quick
+          test_case "Infinite retries when top-level setter is unguarded (S3)"
+            `Quick set_in_body_unguarded_nonterminate;
+          test_case "No re-render when top-level setter is guarded (S4)" `Quick
             set_in_body_guarded_no_rerender;
-          test_case "Retry when setter called during evaluation" `Quick
+          test_case "Retry when setter called during evaluation (S2)" `Quick
             set_in_body_guarded_reread_count;
-          test_case "Retry when setter called during evaluation (2)" `Quick
+          test_case "Retry when setter called during evaluation 2 (S2)" `Quick
             set_in_body_guarded_reread_count2;
-          test_case "No re-render when setter is not called in useEffect" `Quick
-            no_set_in_effect_step_one_time;
+          test_case "No re-render when setter is not called in useEffect (S5)"
+            `Quick no_set_in_effect_step_one_time;
           test_case
-            "No re-render when identity setter is called in useEffect (1)"
+            "No re-render when identity setter is called in useEffect (S6,S7)"
             `Quick set_in_effect_step_one_time;
-          test_case "Re-render 1 time when setter is called in useEffect (1)"
+          test_case "Re-render 1 time when setter is called in useEffect (S8)"
             `Quick set_in_effect_step_two_times;
           test_case
             "Infinite re-renders when diverging setter is called in useEffect \
-             (1)"
+             (S9)"
             `Quick set_in_effect_step_indefinitely;
-          test_case "Re-render 2 times when setter is called in useEffect (2)"
+          test_case "Re-render 2 times when setter is called in useEffect (S8)"
             `Quick set_in_effect_guarded_step_two_times;
-          test_case "Re-render 5 times when setter is called in useEffect (3)"
+          test_case "Re-render 5 times when setter is called in useEffect (S8)"
             `Quick set_in_effect_guarded_step_n_times;
-          test_case "Re-render 1 time when setter is called in useEffect (4)"
+          test_case "Re-render 1 time when setter is called in useEffect (S8)"
             `Quick set_in_effect_with_arg_step_two_times;
-          test_case "Re-render 1 time when setter is called in useEffect (5)"
+          test_case
+            "Re-render 1 time when setter is called in useEffect (S8,S10)"
             `Quick set_passed_step_two_times;
-          test_case "Invalid phase when foreign setter is called in PInit"
+          test_case "Invalid phase when foreign setter is called in PInit (S12)"
             `Quick set_passed_invalid_phase;
           test_case
             "Infinite re-renders when diverging setter is called in useEffect \
-             (2)"
+             (S9,S10)"
             `Quick set_passed_step_indefinitely;
           test_case
             "No re-render when setters compose to an identity are called in \
-             useEffect"
+             useEffect (S7)"
             `Quick set_in_effect_twice_step_one_time;
-          test_case "Set in removed child should step two times" `Quick
+          test_case "Set in removed child should step two times (S8,S13)" `Quick
             set_in_removed_child_step_two_times;
-          test_case "Same child gets persisted" `Quick state_persists_in_child;
-          test_case "New child steps again" `Quick new_child_steps_again;
-          test_case "Re-render 5 times when setter is called in useEffect (6)"
+          test_case "Same child gets persisted (S8,S13)" `Quick
+            state_persists_in_child;
+          test_case "New child steps again (S8,S22)" `Quick
+            new_child_steps_again;
+          test_case "Re-render 5 times when setter is called in useEffect (S8)"
             `Quick set_in_effect_guarded_step_n_times_with_obj;
-          test_case "No re-render when no setter is called in useEffect" `Quick
+          test_case
+            "No re-render when no setter is called in useEffect (S5,S14)" `Quick
             updating_obj_without_set_does_not_rerender;
-          test_case "Flush effect queue on retry" `Quick
+          test_case "Flush effect queue on retry (S2,S8)" `Quick
             effect_queue_gets_flushed_on_retry;
-          test_case "Idle child's effects are run when parent re-renders" `Quick
-            child_view_effect_runs_even_idle_but_parent_rerenders;
-          test_case "Nested view render order" `Quick nested_view_render_order;
-          test_case "Button works" `Quick button;
+          test_case
+            "Idle child's effects are run when parent re-renders (S8,S15)"
+            `Quick child_view_effect_runs_even_idle_but_parent_rerenders;
+          test_case "Nested view render order (S8)" `Quick
+            nested_view_render_order;
+          test_case "Button works (S1,S16)" `Quick button;
           (* NOTE: button_state behaves different due to React's
              optimization. *)
-          test_case "Button with state works" `Quick button_state;
-          test_case "Event handler prints" `Quick event_handler_prints;
-          test_case "Counter Test 1" `Quick counter_test_1;
-          test_case "Counter Test 2" `Quick counter_test_2;
-          test_case "Counter Test 3" `Quick counter_test_3;
-          test_case "Call setter in setter" `Quick call_setter_in_setter;
-          test_case "Set state before bind" `Quick set_state_before_bind;
-          test_case "Set sibling state during effect" `Quick
+          test_case "Button with state works (S16,S17)" `Quick button_state;
+          test_case "Event handler prints (S1,S16)" `Quick event_handler_prints;
+          test_case "Counter Test 1 (S16,S17)" `Quick counter_test_1;
+          test_case "Counter Test 2 (S16,S17)" `Quick counter_test_2;
+          test_case "Counter Test 3 (S16,S17)" `Quick counter_test_3;
+          test_case "Call setter in setter (S18)" `Quick call_setter_in_setter;
+          test_case "Set state before bind (S2)" `Quick set_state_before_bind;
+          test_case "Set sibling state during effect (S8,S11)" `Quick
             set_sibling_state_during_effect;
-          test_case "ABC view" `Quick abc;
-          test_case "Chain view" `Quick chain;
-          test_case "Binary tree" `Quick binary;
-          test_case "Parent child" `Quick parent_child;
+          test_case "ABC view (S1)" `Quick abc;
+          test_case "Chain view (S1,S19)" `Quick chain;
+          test_case "Binary tree (S1,S19)" `Quick binary;
+          test_case "Parent child (S8,S15)" `Quick parent_child;
         ] );
     ]
