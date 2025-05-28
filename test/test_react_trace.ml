@@ -887,6 +887,21 @@ C ()
   let steps = run prog in
   Alcotest.(check' int) ~msg:"step five times" ~expected:5 ~actual:steps
 
+let set_in_effect_guarded_step_n_times2 () =
+  let prog =
+    parse_prog
+      {|
+let C x =
+  let (s, setS) = useState 0 in
+  useEffect (if s < 25 then setS (fun s -> s + 1));
+  [s]
+;;
+C ()
+|}
+  in
+  let steps = run prog in
+  Alcotest.(check' int) ~msg:"step 26 times" ~expected:26 ~actual:steps
+
 let set_in_effect_with_arg_step_two_times () =
   let prog =
     parse_prog
@@ -1209,69 +1224,6 @@ let counter_test_3 () =
   Alcotest.(check' string)
     ~msg:"counter" ~expected:"1\n2\n3\n3\n3\n3\n2\n1\n1\n" ~actual:output
 
-let call_setter_in_setter () =
-  let prog =
-    parse_prog
-      {|
-let App _ =
-  print("start App()");
-  let (data, setData) = useState(
-    print("init");
-    0
-  ) in
-  useEffect(print("effect"));
-  print("end App()");
-  [
-    fun _ -> (
-      print("start onClick");
-      setData(fun d -> (
-        print("start set1: d =");
-        print(d);
-        setData(fun d -> (
-          print("start set2: d =");
-          print(d);
-          print("end set2: return");
-          print(d - 1);
-          d - 1
-        ));
-        print("end set1: return");
-        print(d + 1);
-        d + 1
-      ));
-      print("end onClick")
-    ),
-    data
-  ]
-;;
-App ()
-  |}
-  in
-  let output = run_event_output ~event_q:[ 0 ] prog in
-  Alcotest.(check' string)
-    ~msg:"call setter in setter"
-    ~expected:
-      {|start App()
-init
-end App()
-effect
-start onClick
-end onClick
-start App()
-start set1: d =
-0
-end set1: return
-1
-end App()
-start App()
-start set2: d =
-1
-end set2: return
-0
-end App()
-effect
-|}
-    ~actual:output
-
 let set_state_before_bind () =
   let prog =
     parse_prog
@@ -1485,6 +1437,8 @@ let () =
             `Quick set_in_effect_guarded_step_two_times;
           test_case "Re-render 5 times when setter is called in useEffect (S8)"
             `Quick set_in_effect_guarded_step_n_times;
+          test_case "Re-render 25 times when setter is called in useEffect (S8)"
+            `Quick set_in_effect_guarded_step_n_times2;
           test_case "Re-render 1 time when setter is called in useEffect (S8)"
             `Quick set_in_effect_with_arg_step_two_times;
           test_case
@@ -1497,7 +1451,7 @@ let () =
              (S9,S10)"
             `Quick set_passed_step_indefinitely;
           test_case
-            "No re-render when setters compose to an identity are called in \
+            "No re-render when setters compose to an identity are called in  \
              useEffect (S7)"
             `Quick set_in_effect_twice_step_one_time;
           test_case "Set in removed child should step two times (S8,S13)" `Quick
@@ -1526,13 +1480,12 @@ let () =
           test_case "Counter Test 1 (S16,S17)" `Quick counter_test_1;
           test_case "Counter Test 2 (S16,S17)" `Quick counter_test_2;
           test_case "Counter Test 3 (S16,S17)" `Quick counter_test_3;
-          test_case "Call setter in setter (S18)" `Quick call_setter_in_setter;
           test_case "Set state before bind (S2)" `Quick set_state_before_bind;
           test_case "Set sibling state during effect (S8,S11)" `Quick
             set_sibling_state_during_effect;
           test_case "ABC view (S1)" `Quick abc;
-          test_case "Chain view (S1,S19)" `Quick chain;
-          test_case "Binary tree (S1,S19)" `Quick binary;
+          test_case "Chain view (S1,S18)" `Quick chain;
+          test_case "Binary tree (S1,S18)" `Quick binary;
           test_case "Parent child (S8,S15)" `Quick parent_child;
         ] );
     ]
