@@ -4,11 +4,3 @@
  (preprocess
   (pps js_of_ocaml-ppx))
  (libraries react_trace recorder base logs.fmt fmt.tty js_of_ocaml))
-
-(rule
- (deps main.bc.js)
- (target react-trace.bc.js)
- (action
-  (with-stdout-to
-   %{target}
-   (run sed -E "s/(^|[^[:alnum:]_])node:/\\1/g" %{deps}))))

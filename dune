@@ -2,6 +2,6 @@
  (_
   (js_of_ocaml
    (flags
-    (:standard --enable effects))
+    (:standard --target-env browser --enable effects))
    (build_runtime_flags
-    (:standard --enable effects)))))
+    (:standard --target-env browser --enable effects)))))
