@@ -50,9 +50,5 @@
   },
   "trustedDependencies": [
     "rescript"
-  ],
-  "browser": {
-    "fs": false,
-    "child_process": false
-  }
+  ]
 }

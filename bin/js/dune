@@ -4,3 +4,13 @@
  (preprocess
   (pps js_of_ocaml-ppx))
  (libraries react_trace recorder base logs.fmt fmt.tty js_of_ocaml))
+
+(rule
+ (mode
+  (promote
+   (until-clean)
+   (into ../../frontend/shared/react-trace)))
+ (deps main.bc.js)
+ (target react-trace.bc.js)
+ (action
+  (copy %{deps} %{target})))

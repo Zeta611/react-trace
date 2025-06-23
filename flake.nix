@@ -50,8 +50,10 @@
         devShells.default = pkgs.mkShell {
           inputsFrom = [ main ];
           buildInputs =
+            with pkgs;
             devPackages
             ++ [
+              nodejs
             ];
         };
       }
