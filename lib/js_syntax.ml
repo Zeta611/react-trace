@@ -758,8 +758,9 @@ and convert_expr ((loc, expr) : (Loc.t, Loc.t) Flow_ast.Expression.t) :
             loop ~loc:(loc_of_jsloc mem_loc) name
         | _ -> raise NotImplemented (* non-identifier JSX element name *)
       in
-      x_view ~loc:(loc_of_jsloc loc)
-        [ x_app { fn = name; arg = x_const_unit () } ]
+      (* x_view ~loc:(loc_of_jsloc loc)
+        [ x_app { fn = name; arg = x_const_unit () } ] *)
+      x_app ~loc:(loc_of_jsloc loc) { fn = name; arg = x_const_unit () }
   | JSXFragment _ ->
       (* TODO *)
       x_view ~loc:(loc_of_jsloc loc) [ x_const_unit () ]

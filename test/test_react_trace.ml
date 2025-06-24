@@ -507,7 +507,7 @@ let js_jsx () =
   Alcotest.(check' (of_pp Sexp.pp_hum))
     ~msg:"convert jsx" ~actual:(Prog.sexp_of_t prog)
     ~expected:
-      (parse_prog {|[()]; [Comp ()]; [(Mod["Comp"]) ()]|} |> Prog.sexp_of_t)
+      (parse_prog {|[()]; Comp (); (Mod["Comp"]) ()|} |> Prog.sexp_of_t)
 
 let js_op () =
   let open Syntax in
@@ -708,13 +708,15 @@ let js_use_effect_expr () =
       useEffect(() => setS(s + 1));
       return s;
     }
+    render(<Comp />);
     |}
     {|
     let Comp p =
       let (s, setS) = useState 42 in
       useEffect (setS (s + 1));
       s;;
-    ()|}
+    render (Comp ())
+  |}
 
 let no_side_effect () =
   let prog =
