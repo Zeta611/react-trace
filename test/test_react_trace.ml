@@ -718,6 +718,21 @@ let js_use_effect_expr () =
     render (Comp ())
   |}
 
+let js_argument_destructuring () =
+  js_convert_test "convert argument destructuring"
+    {|
+    function Comp({x, y}) {
+      return x + y;
+    }
+    |}
+    {|
+    let Comp p =
+      let p' = p in
+      let x = p'["x"] in
+      let y = p'["y"] in
+      x + y;;
+    ()|}
+
 let no_side_effect () =
   let prog =
     parse_prog {|
@@ -1411,6 +1426,7 @@ let () =
           test_case "useState" `Quick js_use_state;
           test_case "useEffect" `Quick js_use_effect;
           test_case "useEffect with expression" `Quick js_use_effect_expr;
+          test_case "argument destructuring" `Quick js_argument_destructuring;
         ] );
       ( "React-tRace",
         [
