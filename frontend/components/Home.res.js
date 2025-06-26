@@ -3,6 +3,7 @@
 
 import * as React from "react";
 import * as Skeleton from "./shadcn-ui/Skeleton.res.js";
+import * as LucideReact from "lucide-react";
 import Dynamic from "next/dynamic";
 import * as JsxRuntime from "react/jsx-runtime";
 
@@ -31,13 +32,31 @@ function Home(props) {
   var editor = React.createElement(lazyEditor, {});
   return JsxRuntime.jsxs("main", {
               children: [
-                JsxRuntime.jsx("h1", {
-                      children: "React-tRace",
-                      className: "text-4xl p-3 font-serif"
+                JsxRuntime.jsxs("div", {
+                      children: [
+                        JsxRuntime.jsx("img", {
+                              className: "inline-block w-[165px]",
+                              alt: "React-tRace",
+                              src: "/react-trace.svg"
+                            }),
+                        JsxRuntime.jsx("a", {
+                              children: JsxRuntime.jsx(LucideReact.Github, {
+                                    className: "size-7"
+                                  }),
+                              className: "pb-2",
+                              href: "https://github.com/Zeta611/react-trace",
+                              target: "_blank"
+                            })
+                      ],
+                      className: "flex px-3 pt-3 items-end place-content-between"
+                    }),
+                JsxRuntime.jsx("p", {
+                      children: "React-tRace is a React Hooks interpreter and a visualizer based on a formal semantics of React Hooks. It interprets React-like components, tracking render cycles, state updates, and effect executions. The view hierarchy can be inspected at each execution step, and the entire execution is replayable!",
+                      className: "px-3"
                     }),
                 editor
               ],
-              className: "flex h-screen flex-col"
+              className: "flex h-screen flex-col gap-3"
             });
 }
 
