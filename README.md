@@ -1,8 +1,10 @@
-# 🛤️ React-tRace
+<img src="https://github.com/user-attachments/assets/8d07d3bd-1dc7-4156-9a40-314a38ebe540" alt="React-tRace logo">
+
+React-tRace is a React hooks reference interpreter based on a formal semantics. It interprets React-like components, tracking render cycles, state updates, and effect executions to detect inefficient re-renders at runtime.
+
+---
 
 [![Builds, tests & co](https://github.com/React-Analysis/react-trace/actions/workflows/ci.yml/badge.svg)](https://github.com/React-Analysis/react-trace/actions/workflows/ci.yml)
-
-React-tRace is a React hooks reference interpreter based on a formal semantics[^1]. It interprets React-like components, tracking render cycles, state updates, and effect executions to detect inefficient re-renders at runtime.
 
 ## What does it do?
 
@@ -141,3 +143,7 @@ let Component x =
 ```
 
 React-tRace also supports parsing JavaScript/TypeScript files with the `-parse-js` option, enabling you to analyze React code closer to what you'd write in a real application.
+
+## Acknowledments
+
+I thank [Susana Balderas](https://susybachi.my.canva.site/) for the awesome logo!
