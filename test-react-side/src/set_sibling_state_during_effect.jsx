@@ -27,22 +27,19 @@ function E({ setS }) {
 function C() {
   const [f, setF] = useState(() => null);
 
-  return (
-    f === null ? (
-      <div>
-        <E setS={() => {}} />
-        <D setF={setF} />
-      </div>
-    ) : (
-      <div>
-        <E setS={f} />
-        <D setF={() => {}} />
-      </div>
-    )
+  return f === null ? (
+    <div>
+      <E setS={() => {}} />
+      <D setF={setF} />
+    </div>
+  ) : (
+    <div>
+      <E setS={f} />
+      <D setF={() => {}} />
+    </div>
   );
 }
 
 export default function RenderCycleSiblingSetter() {
   return <C />;
 }
-

@@ -17,4 +17,3 @@ test("Guarded top-level setState stops re-rendering", () => {
   expect(print.mock.calls.length).toBe(1);
   expect(print.mock.calls[0][0]).toBe("");
 });
-

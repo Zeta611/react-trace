@@ -21,4 +21,3 @@ function D() {
 export default function RenderCycleSetPassedInvalidPhase() {
   return <D />;
 }
-

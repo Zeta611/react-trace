@@ -19,4 +19,3 @@ function C() {
 export default function RenderCycleSetStateGuardedWithObj() {
   return <C />;
 }
-

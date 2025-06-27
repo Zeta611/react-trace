@@ -22,4 +22,3 @@ test("Re-render 5 times when setter is called in useEffect with guard", () => {
   expect(print.mock.calls[3][0]).toBe("C");
   expect(print.mock.calls[4][0]).toBe("C");
 });
-

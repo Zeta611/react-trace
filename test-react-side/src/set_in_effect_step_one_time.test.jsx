@@ -17,4 +17,3 @@ test("No re-render when identity setter is called in useEffect", () => {
   expect(print).toHaveBeenCalledTimes(1);
   expect(print.mock.calls[0][0]).toBe("C");
 });
-

@@ -18,4 +18,3 @@ test("Set sibling state during effect works correctly", async () => {
 
   expect(print.mock.calls).toEqual([["D"], ["D"], ["D"]]);
 });
-

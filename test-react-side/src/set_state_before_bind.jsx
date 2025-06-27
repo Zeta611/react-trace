@@ -25,4 +25,3 @@ function C() {
 export default function RenderCycleSetStateBeforeBind() {
   return <C />;
 }
-

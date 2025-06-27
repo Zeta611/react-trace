@@ -27,4 +27,3 @@ test("Would render indefinitely when diverging setter is called in useEffect", a
   // Restore console.error
   console.error = originalConsoleError;
 });
-

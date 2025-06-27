@@ -17,4 +17,3 @@ function C() {
 export default function RenderCycleSetInEffectStep2() {
   return <C />;
 }
-

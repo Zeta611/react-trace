@@ -16,4 +16,3 @@ function C() {
 export default function RenderCycleSetInBodyGuarded() {
   return <C />;
 }
-

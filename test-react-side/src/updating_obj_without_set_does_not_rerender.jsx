@@ -15,4 +15,3 @@ function C() {
 export default function RenderCycleUpdateObjNoRerender() {
   return <C />;
 }
-

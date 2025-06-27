@@ -18,4 +18,3 @@ test("No re-render when setters compose to identity in useEffect", () => {
   expect(print).toHaveBeenCalledTimes(1);
   expect(print.mock.calls[0][0]).toBe("C");
 });
-

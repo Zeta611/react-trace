@@ -19,4 +19,3 @@ function C() {
 export default function RenderCycleSetInEffectTwiceStep1() {
   return <C />;
 }
-

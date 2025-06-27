@@ -20,8 +20,9 @@ test("Setting state in render phase works in React but logs invalid phase", () =
   const { container } = render(<RenderCycleSetPassedInvalidPhase />);
 
   expect(console.error.mock.calls).toHaveLength(1);
-  expect(console.error.mock.calls[0][0]).toMatch("https://react.dev/link/setstate-in-render");
+  expect(console.error.mock.calls[0][0]).toMatch(
+    "https://react.dev/link/setstate-in-render",
+  );
 
   console.error = originalConsoleError;
 });
-

@@ -17,4 +17,3 @@ test("No re-render when object is mutated without setState", () => {
   expect(print).toHaveBeenCalledTimes(1);
   expect(print.mock.calls[0][0]).toBe("C");
 });
-

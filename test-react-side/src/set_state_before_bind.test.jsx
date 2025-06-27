@@ -22,4 +22,3 @@ test("Set state before bind causes correct render sequence", async () => {
   expect(print.mock.calls[2]).toEqual([2, 1]);
   expect(print.mock.calls[3]).toEqual([3, 1]);
 });
-
