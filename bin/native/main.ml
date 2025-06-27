@@ -29,6 +29,11 @@ let get_program (filename : string) : Syntax.Prog.t =
       In_channel.close inx;
       Stdlib.exit 2
 
+let with_re_render_limit_handler run prog ~re_render_limit =
+  match re_render_limit with
+  | None -> run prog
+  | Some re_render_limit -> Interp.re_render_limit_h run prog ~re_render_limit
+
 let () =
   let module Arg = Stdlib.Arg in
   let module Sys = Stdlib.Sys in
@@ -37,6 +42,7 @@ let () =
   let opt_pp = ref false in
   let opt_parse_js = ref false in
   let opt_fuel = ref None in
+  let opt_re_render_limit = ref None in
   let opt_report = ref false in
   let opt_verbosity = ref Logs.Info in
   let opt_event_q = ref [] in
@@ -56,12 +62,16 @@ let () =
       ( "-report",
         Arg.Unit (fun _ -> opt_report := true),
         "Report the view trees" );
-      ("-fuel", Arg.Int (fun n -> opt_fuel := Some n), "[fuel] Run with fuel");
+      ("-fuel", Arg.Int (fun n -> opt_fuel := Some n), "Run with fuel");
+      ( "-re-render-limit",
+        Arg.Int (fun n -> opt_re_render_limit := Some n),
+        "Run with re-render limit" );
       ( "-events",
         Arg.String
           (fun s ->
             opt_event_q := String.split ~on:',' s |> List.map ~f:Int.of_string),
-        "[events] Run with events (e.g. '0,1,1,0')" );
+        "Run with events (comma-separated list of event handlers to trigger, \
+         e.g. '0,1,1,0')" );
     ]
   in
   Arg.parse speclist (fun x -> filename := x) usage_msg;
@@ -84,9 +94,11 @@ let () =
       let steps =
         if !opt_report then (
           let { Interp.steps; recording; output; _ } =
-            Interp.run ?fuel:!opt_fuel
-              ~event_q_handler:(Default_event_q.event_h ~event_q:!opt_event_q)
-              ~recorder:(module Report_box_recorder)
+            with_re_render_limit_handler ~re_render_limit:!opt_re_render_limit
+              (Interp.run ?fuel:!opt_fuel
+                 ~event_q_handler:
+                   (Default_event_q.event_h ~event_q:!opt_event_q)
+                 ~recorder:(module Report_box_recorder))
               prog
           in
           fst recording |> List.rev
@@ -100,9 +112,11 @@ let () =
           steps)
         else
           let { Interp.steps; output; _ } =
-            Interp.run ?fuel:!opt_fuel
-              ~recorder:(module Default_recorder)
-              ~event_q_handler:(Default_event_q.event_h ~event_q:!opt_event_q)
+            with_re_render_limit_handler ~re_render_limit:!opt_re_render_limit
+              (Interp.run ?fuel:!opt_fuel
+                 ~event_q_handler:
+                   (Default_event_q.event_h ~event_q:!opt_event_q)
+                 ~recorder:(module Default_recorder))
               prog
           in
           Out_channel.print_endline output;
