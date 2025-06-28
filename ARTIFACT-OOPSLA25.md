@@ -282,3 +282,12 @@ The React-tRace implementation can function both as a command-line definitional 
 React-tRace can be included in web projects using the Js_of_ocaml compiler. Under [`bin/js/`](./bin/js/) is an example of how React-tRace can be exported as a JS library. The output JS file is included in the frontend interface under [`frontend/shared/react-trace/react-trace.bc.js`](./frontend/shared/react-trace/react-trace.bc.js). Since Js_of_ocaml uses its internal representations for encoding data, JSON serialization is required to interface with typical JS applications.
 
 We provide [`Recorder_intf`](./lib/recorder_intf/recorder_intf.ml) for developers to implement custom logging facilities to "hook into" (as a general term, not React Hook) the definitional interpreter. This is how we provide different interfaces ourselves---a command-line interface via the `-report` command-line option (implemented in [`bin/native/report_box_recorder/`](./bin/native/report_box_recorder/)) and a web GUI interface (implemented in [`bin/js/recorder/`](./bin/js/recorder/)).
+
+The [`interp.mli`](./lib/interp.mli), which is an interface to the React-tRace definitional interpreter, is documented using `odoc`. This can be built with
+```sh
+𝝺 dune build @doc
+```
+and the resulting documentation can be viewed with
+```sh
+𝝺 open _build/default/_doc/_html/index.html
+```

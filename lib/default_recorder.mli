@@ -1,3 +1,3 @@
-include Recorder_intf.Intf
+(** This is the default recorder. It is a no-op recorder that does nothing. *)
 
-(** Default recorder does nothing *)
+include Recorder_intf.Intf

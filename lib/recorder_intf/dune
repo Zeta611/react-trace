@@ -1,3 +1,4 @@
 (library
  (name recorder_intf)
+ (public_name react_trace.recorder_intf)
  (libraries base))

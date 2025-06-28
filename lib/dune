@@ -1,5 +1,6 @@
 (library
  (name react_trace)
+ (public_name react_trace)
  (preprocess
   (pps ppx_jane))
- (libraries recorder_intf base logs flow_parser lib_domains))
+ (libraries react_trace.recorder_intf base logs flow_parser react_trace.domains))

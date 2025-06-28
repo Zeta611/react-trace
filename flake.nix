@@ -24,6 +24,7 @@
           ocamlformat = "0.27.0";
           utop = "2.15.0";
           alcotest = "*";
+          odoc = "*";
         };
         query = devPackagesQuery // {
           ocaml-base-compiler = "*";
