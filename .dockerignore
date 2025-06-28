@@ -1,0 +1,9 @@
+.direnv/
+.git/
+.github/
+_build/
+.envrc
+**/.gitignore
+**/.gitattributes
+**/node_modules/
+**/.next/

@@ -2,16 +2,18 @@
 
 (using menhir 3.0)
 
+(subst disabled) ; workaround for build failure on Nix
+
 (name react_trace)
 
 (generate_opam_files true)
 
 (source
- (github React-Analysis/ReacttRace))
+ (github Zeta611/react-trace))
 
-(authors "Jay Lee")
+(authors "Jay Lee" "Joongwon Ahn")
 
-(maintainers "Jay Lee")
+(maintainers "Jay Lee" "Joongwon Ahn")
 
 (license LICENSE)
 
@@ -19,8 +21,8 @@
 
 (package
  (name react_trace)
- (synopsis "React Analyzer")
- (description "ReacttRace is a tool for analyzing React programs.")
+ (synopsis "React-tRace")
+ (description "React-tRace is a React Hooks interpreter based on a formal semantics.")
  (depends
   ocaml
   (ocaml-base-compiler
@@ -45,6 +47,6 @@
   ppx_yojson_conv
   (alcotest :with-test))
  (tags
-  (React "Static Analysis")))
+  (React Hooks "Render semantics" "Definitional interpreter")))
 
 ; See the complete stanza docs at https://dune.readthedocs.io/en/stable/dune-files.html#dune-project
