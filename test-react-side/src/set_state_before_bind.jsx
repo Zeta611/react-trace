@@ -17,7 +17,8 @@ function C() {
     setSetter(() => setValue);
   }
 
-  print(render, value);
+  print(render);
+  print(value);
 
   return <div>{value}</div>;
 }

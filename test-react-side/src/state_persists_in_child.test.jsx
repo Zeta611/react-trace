@@ -15,4 +15,6 @@ test("Child state persists when parent re-renders with same component type", () 
   render(<ComponentStatePersistence />);
 
   expect(print.mock.calls.length).toEqual(2);
+  expect(print.mock.calls[0][0]).toBe("");
+  expect(print.mock.calls[1][0]).toBe("");
 });

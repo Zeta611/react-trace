@@ -5,7 +5,7 @@ import print from "./print";
 function C({ setS }) {
   useEffect(() => {
     setS(() => 0);
-    print("C effect");
+    print("");
   });
 
   return <div></div>;

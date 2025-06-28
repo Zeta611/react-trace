@@ -12,9 +12,9 @@ jest.mock("./print", () => ({
 test("No re-render when setters compose to identity in useEffect", () => {
   print.mockClear();
 
-  const { container } = render(<RenderCycleSetInEffectTwiceStep1 />);
+  render(<RenderCycleSetInEffectTwiceStep1 />);
 
   // React will batch the state updates, so the component renders once with 42
   expect(print).toHaveBeenCalledTimes(1);
-  expect(print.mock.calls[0][0]).toBe("C");
+  expect(print.mock.calls[0][0]).toBe("");
 });

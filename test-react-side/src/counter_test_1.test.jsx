@@ -17,8 +17,8 @@ test("Counter test with increment once [0]", () => {
   const buttons = container.querySelectorAll("button");
 
   fireEvent.click(buttons[0]);
-  fireEvent.click(buttons[0]);
 
+  expect(print).toHaveBeenCalledTimes(2);
   expect(print.mock.calls[0][0]).toBe(1);
   expect(print.mock.calls[1][0]).toBe(2);
 });

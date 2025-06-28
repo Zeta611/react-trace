@@ -6,7 +6,7 @@ function C() {
   const [s, setS] = useState({ x: 42 });
 
   useEffect(() => {
-    print("C");
+    print("");
 
     if (s.x <= 45) {
       setS(() => ({ x: s.x + 1 }));

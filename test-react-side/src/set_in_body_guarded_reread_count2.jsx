@@ -8,9 +8,6 @@ function C() {
   if (s < 25) {
     setS((s) => s + 1);
   }
-  useEffect(() => {
-    print("");
-  });
   return <div></div>;
 }
 

@@ -16,5 +16,8 @@ test("Set sibling state during effect works correctly", async () => {
     render(<RenderCycleSiblingSetter />);
   });
 
-  expect(print.mock.calls).toEqual([["D"], ["D"], ["D"]]);
+  expect(print).toHaveBeenCalledTimes(3);
+  expect(print.mock.calls[0][0]).toBe("D");
+  expect(print.mock.calls[1][0]).toBe("D");
+  expect(print.mock.calls[2][0]).toBe("D");
 });

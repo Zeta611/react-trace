@@ -17,5 +17,4 @@ test("Retry renders counter with value 25", () => {
   for (let i = 0; i <= 25; ++i) {
     expect(print.mock.calls[i][0]).toBe("C");
   }
-  expect(print.mock.calls[26][0]).toBe("");
 });

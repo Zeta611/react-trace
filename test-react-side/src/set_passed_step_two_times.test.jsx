@@ -12,10 +12,10 @@ jest.mock("./print", () => ({
 test("Re-render 1 time when setter is called in child component", () => {
   print.mockClear();
 
-  const { container } = render(<RenderCycleSetPassedStep2 />);
+  render(<RenderCycleSetPassedStep2 />);
 
   expect(print.mock.calls.length).toBe(2);
 
-  expect(print.mock.calls[0][0]).toBe("C effect");
-  expect(print.mock.calls[1][0]).toBe("C effect");
+  expect(print.mock.calls[0][0]).toBe("");
+  expect(print.mock.calls[1][0]).toBe("");
 });

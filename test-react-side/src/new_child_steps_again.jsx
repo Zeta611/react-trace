@@ -7,7 +7,7 @@ function C() {
 
   useEffect(() => {
     setS(() => 0);
-    print("");
+    print("C");
   });
 
   return <div>{s}</div>;

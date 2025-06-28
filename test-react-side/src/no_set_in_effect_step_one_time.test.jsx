@@ -12,8 +12,8 @@ jest.mock("./print", () => ({
 test("No re-render when identity setter is called in useEffect", () => {
   print.mockClear();
 
-  const { container } = render(<RenderCycleSetInEffectStep />);
+  render(<RenderCycleSetInEffectStep />);
 
   expect(print).toHaveBeenCalledTimes(1);
-  expect(print.mock.calls[0][0]).toBe("C");
+  expect(print.mock.calls[0][0]).toBe("");
 });

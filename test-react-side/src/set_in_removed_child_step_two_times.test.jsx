@@ -15,4 +15,6 @@ test("Child state update happens before it is removed", () => {
   render(<ComponentStateInRemoved />);
 
   expect(print.mock.calls.length).toEqual(2);
+  expect(print.mock.calls[0][0]).toBe("");
+  expect(print.mock.calls[1][0]).toBe("");
 });

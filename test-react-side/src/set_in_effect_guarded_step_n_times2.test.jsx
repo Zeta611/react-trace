@@ -16,5 +16,7 @@ test("Rerender counts up to 25 with useEffect", () => {
 
   expect(container).toHaveTextContent("25");
   expect(print).toHaveBeenCalledTimes(26);
-  expect(print.mock.calls[25][0]).toBe("25");
+  for (let i = 0; i <= 25; ++i) {
+    expect(print.mock.calls[i][0]).toBe("");
+  }
 });

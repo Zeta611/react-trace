@@ -17,8 +17,13 @@ test("Set state before bind causes correct render sequence", async () => {
     render(<RenderCycleSetStateBeforeBind />);
   });
 
-  expect(print.mock.calls[0]).toEqual([0, 0]);
-  expect(print.mock.calls[1]).toEqual([1, 1]);
-  expect(print.mock.calls[2]).toEqual([2, 1]);
-  expect(print.mock.calls[3]).toEqual([3, 1]);
+  expect(print).toHaveBeenCalledTimes(8);
+  expect(print.mock.calls[0]).toEqual([0]);
+  expect(print.mock.calls[1]).toEqual([0]);
+  expect(print.mock.calls[2]).toEqual([1]);
+  expect(print.mock.calls[3]).toEqual([1]);
+  expect(print.mock.calls[4]).toEqual([2]);
+  expect(print.mock.calls[5]).toEqual([1]);
+  expect(print.mock.calls[6]).toEqual([3]);
+  expect(print.mock.calls[7]).toEqual([1]);
 });

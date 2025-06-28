@@ -5,7 +5,7 @@ import print from "./print";
 function C() {
   const [s, setS] = useState({ x: 42 });
   useEffect(() => {
-    print("C");
+    print("");
     s.x = 43;
   });
 

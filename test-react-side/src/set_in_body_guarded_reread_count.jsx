@@ -8,9 +8,6 @@ function C() {
   if (s === 42) {
     setS((s) => 43);
   }
-  useEffect(() => {
-    print("");
-  });
   return <div></div>;
 }
 

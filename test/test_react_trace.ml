@@ -506,8 +506,7 @@ let js_jsx () =
   let prog = Js_syntax.convert js in
   Alcotest.(check' (of_pp Sexp.pp_hum))
     ~msg:"convert jsx" ~actual:(Prog.sexp_of_t prog)
-    ~expected:
-      (parse_prog {|[()]; Comp (); (Mod["Comp"]) ()|} |> Prog.sexp_of_t)
+    ~expected:(parse_prog {|[()]; Comp (); (Mod["Comp"]) ()|} |> Prog.sexp_of_t)
 
 let js_op () =
   let open Syntax in
@@ -1055,7 +1054,7 @@ let new_child_steps_again () =
       {|
 let C x =
   let (s, setS) = useState 42 in
-  useEffect (setS (fun s -> 0));
+  useEffect (setS (fun s -> 0); print "C");
   [s]
 ;;
 let D x =
@@ -1069,8 +1068,15 @@ let D x =
 D ()
 |}
   in
-  let steps = run prog in
-  Alcotest.(check' int) ~msg:"step three times" ~expected:3 ~actual:steps
+
+  (* let steps = run prog in *)
+  (* Alcotest.(check' int) ~msg:"step three times" ~expected:3 ~actual:steps *)
+
+  (* NOTE: Indirect test by printing to match with the React-side. The above
+     passes as well. *)
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"step three times" ~expected:"C\nC\nC\nC\n" ~actual:output
 
 let set_in_effect_guarded_step_n_times_with_obj () =
   let prog =

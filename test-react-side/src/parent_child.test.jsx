@@ -15,8 +15,9 @@ test("Child component re-renders whenever Parent component re-renders", () => {
   const { container } = render(<ParentChild />);
 
   expect(container).toHaveTextContent("10");
-  const parentCalls = print.mock.calls.filter((call) => call[0] === "P").length;
-  const childCalls = print.mock.calls.filter((call) => call[0] === "C").length;
-  expect(parentCalls).toBe(11);
-  expect(childCalls).toBe(11);
+  expect(print.mock.calls.length).toEqual(22);
+  for (let i = 0; i < 22; i += 2) {
+    expect(print.mock.calls[i][0]).toBe("C");
+    expect(print.mock.calls[i + 1][0]).toBe("P");
+  }
 });

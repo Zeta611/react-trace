@@ -12,13 +12,13 @@ jest.mock("./print", () => ({
 test("Re-render 5 times when setter is called in useEffect with guard", () => {
   print.mockClear();
 
-  const { container } = render(<RenderCycleSetStateGuarded />);
+  render(<RenderCycleSetStateGuarded />);
 
   expect(print).toHaveBeenCalledTimes(5);
 
-  expect(print.mock.calls[0][0]).toBe("C");
-  expect(print.mock.calls[1][0]).toBe("C");
-  expect(print.mock.calls[2][0]).toBe("C");
-  expect(print.mock.calls[3][0]).toBe("C");
-  expect(print.mock.calls[4][0]).toBe("C");
+  expect(print.mock.calls[0][0]).toBe("");
+  expect(print.mock.calls[1][0]).toBe("");
+  expect(print.mock.calls[2][0]).toBe("");
+  expect(print.mock.calls[3][0]).toBe("");
+  expect(print.mock.calls[4][0]).toBe("");
 });

@@ -6,7 +6,7 @@ function C({ x }) {
   const [s, setS] = useState(() => 42);
 
   useEffect(() => {
-    print("C");
+    print("");
 
     if (s !== x) {
       setS(() => x);
