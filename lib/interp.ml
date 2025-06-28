@@ -187,7 +187,6 @@ let io_h (type a b) (f : a -> b) (x : a) : output:string -> b * string =
 let value_exn exn v =
   Option.value_exn v ~error:(Error.of_exn exn ~backtrace:`Get)
 
-let int_of_value_exn v = v |> Value.to_int |> value_exn Type_error
 let bool_of_value_exn v = v |> Value.to_bool |> value_exn Type_error
 let string_of_value_exn v = v |> Value.to_string |> value_exn Type_error
 let addr_of_value_exn v = v |> Value.to_addr |> value_exn Type_error
