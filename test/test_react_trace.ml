@@ -1375,7 +1375,39 @@ C 3
   Alcotest.(check' int)
     ~msg:"binary tree" ~expected:8 ~actual:(List.length output)
 
+let child_changes_after_rerender () =
+  let prog =
+    parse_prog
+      {|
+let Child1 _ =
+  useEffect (print 1);
+  1
+;;
+let Child2 _ =
+  useEffect (print 2);
+  2
+;;
+let Parent _ =
+  let (s, setS) = useState true in
+  useEffect (
+    print "P";
+    if s then setS (fun _ -> false)
+  );
+  if s then
+    Child1 ()
+  else
+    Child2 ()
+;;
+Parent ()
+  |}
+  in
+  let output = run_output prog in
+  Alcotest.(check' string)
+    ~msg:"child changes after rerender" ~expected:"1\nP\n2\nP\n" ~actual:output
+
 let () =
+  Logs.set_reporter (Logs_fmt.reporter ());
+  Logs.set_level (Some Logs.Info);
   let open Alcotest in
   run "Interpreter"
     [
@@ -1511,5 +1543,7 @@ let () =
           test_case "Chain view (S1,S18)" `Quick chain;
           test_case "Binary tree (S1,S18)" `Quick binary;
           test_case "Parent child (S8,S15)" `Quick parent_child;
+          test_case "Child changes after re-render (S8,S13)" `Quick
+            child_changes_after_rerender;
         ] );
     ]
