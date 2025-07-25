@@ -210,34 +210,55 @@ let rec eval : type a. a Expr.t -> value =
  fun expr ->
   Logger.eval expr;
   match expr.desc with
-  | Const Unit -> Const Unit
-  | Const (Bool b) -> Const (Bool b)
-  | Const (Int i) -> Const (Int i)
-  | Const (String s) -> Const (String s)
+  | Const Unit ->
+      Logs.info (fun m -> m "Unit");
+      Const Unit
+  | Const (Bool b) ->
+      Logs.info (fun m -> m (if b then "True" else "False"));
+      Const (Bool b)
+  | Const (Int i) ->
+      Logs.info (fun m -> m "Int");
+      Const (Int i)
+  | Const (String s) ->
+      Logs.info (fun m -> m "String");
+      Const (String s)
   | Var id ->
+      Logs.info (fun m -> m "Var");
       let env = perform Rd_env in
       Env.lookup env ~id
-  | Comp c -> Comp c
-  | View es -> List_spec (List.map es ~f:(fun e -> eval e |> vs_of_value_exn))
+  | Comp c ->
+      Logs.info (fun m -> m "Comp");
+      Comp c
+  | View es ->
+      Logs.info (fun m -> m "List");
+      List_spec (List.map es ~f:(fun e -> eval e |> vs_of_value_exn))
   | Cond { pred; con; alt } ->
+      Logs.info (fun m -> m "Cond");
       let p = eval pred |> bool_of_value_exn in
       if p then eval con else eval alt
-  | Fn { self; param; body } -> Clos { self; param; body; env = perform Rd_env }
+  | Fn { self; param; body } ->
+      Logs.info (fun m -> m "Func");
+      Clos { self; param; body; env = perform Rd_env }
   | App { fn; arg } -> (
       match eval fn with
       | Clos cl ->
+          Logs.info (fun m -> m "AppFunc");
           let env = build_app_env cl (eval arg) in
           perform (In_env env) eval cl.body
-      | Comp comp -> Comp_spec { comp; arg = eval arg }
+      | Comp comp ->
+          Logs.info (fun m -> m "AppCom");
+          Comp_spec { comp; arg = eval arg }
       | Set_clos { label; path } ->
           (* Argument to the setter should be a setting thunk *)
           let clos = eval arg |> clos_of_value_exn in
           (match perform Rd_ph with
           | (P_init self_pt | P_succ self_pt) when Path.(path = self_pt) ->
+              Logs.info (fun m -> m "AppSetComp");
               perform (View_add_dec Decision.chk);
               let v, q = perform (View_lookup_st label) in
               perform (View_update_st (label, (v, Job_q.enqueue q clos)))
           | P_normal ->
+              Logs.info (fun m -> m "AppSetNormal");
               perform (Tree_add_dec (path, Decision.chk));
               let v, q = perform (Tree_lookup_st (path, label)) in
               perform (Tree_update_st (path, label, (v, Job_q.enqueue q clos)))
@@ -245,6 +266,7 @@ let rec eval : type a. a Expr.t -> value =
           Const Unit
       | _ -> raise Type_error)
   | Let { id; bound; body } ->
+      Logs.info (fun m -> m "LetBind");
       let value = eval bound in
       let env = Env.extend (perform Rd_env) ~id ~value in
       perform (In_env env) eval body
@@ -252,6 +274,7 @@ let rec eval : type a. a Expr.t -> value =
       let path = perform Rd_pt in
       match perform Rd_ph with
       | P_init _ ->
+          Logs.info (fun m -> m "SttBind");
           let v = eval init in
           perform (View_update_st (label, (v, Job_q.empty)));
           let env =
@@ -261,6 +284,7 @@ let rec eval : type a. a Expr.t -> value =
           in
           perform (In_env env) eval body
       | P_succ _ ->
+          Logs.info (fun m -> m "SttReBind");
           let v_old, q = perform (View_lookup_st label) in
           perform (View_update_st (label, (v_old, Job_q.empty)));
           (* Run the setting thunks in the set queue *)
@@ -281,14 +305,17 @@ let rec eval : type a. a Expr.t -> value =
           perform (In_env env) eval body
       | P_normal -> raise Invalid_phase)
   | Eff e ->
+      Logs.info (fun m -> m "Eff");
       (match perform Rd_ph with P_normal -> raise Invalid_phase | _ -> ());
       let env = perform Rd_env in
       perform (View_enq_eff { self = None; param = Id.unit; body = e; env });
       Const Unit
   | Seq (e1, e2) ->
+      Logs.info (fun m -> m "Seq");
       eval e1 |> ignore;
       eval e2
   | Uop { op; arg } ->
+      Logs.info (fun m -> m "Uop");
       let v = eval arg in
       let k =
         match (op, v) with
@@ -299,6 +326,7 @@ let rec eval : type a. a Expr.t -> value =
       in
       Const k
   | Bop { op; left; right } ->
+      Logs.info (fun m -> m "Bop");
       let v1 = eval left in
       let v2 = eval right in
       let k =
@@ -338,14 +366,17 @@ let rec eval : type a. a Expr.t -> value =
       in
       Const k
   | Alloc ->
+      Logs.info (fun m -> m "Alloc");
       let addr = perform (Alloc_addr Obj.empty) in
       Addr addr
   | Get { obj; idx } ->
+      Logs.info (fun m -> m "Get");
       let addr = eval obj |> addr_of_value_exn in
       let i = eval idx |> string_of_value_exn in
       let obj = perform (Lookup_addr addr) in
       Obj.lookup obj ~field:i
   | Set { obj; idx; value } ->
+      Logs.info (fun m -> m "Set");
       let addr = eval obj |> addr_of_value_exn in
       let i = eval idx |> string_of_value_exn in
       let old_obj = perform (Lookup_addr addr) in
@@ -354,6 +385,7 @@ let rec eval : type a. a Expr.t -> value =
       perform (Update_addr (addr, new_obj));
       Const Unit
   | Print s ->
+      Logs.info (fun m -> m "Print");
       perform (Print (string_of_value_exn (eval s)));
       Const Unit
 
@@ -370,6 +402,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
   let v = eval expr in
   let path = perform Rd_pt in
   if (perform View_get_dec).chk then (
+    Logs.info (fun m -> m "EvalMult");
     let re_render = re_render + 1 in
     let comp_name = perform View_get_comp_name in
     let decision = perform View_get_dec in
@@ -381,15 +414,24 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
            checkpoint = Retry_start (re_render, path);
          });
     ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr)
-  else v
+  else (
+    Logs.info (fun m -> m "EvalOnce");
+    v)
 
 let rec init (vs : view_spec) : tree =
   Logger.init vs;
   match vs with
-  | Vs_const k -> T_const k
-  | Vs_clos cl -> T_clos cl
-  | Vs_list vss -> T_list (List.map vss ~f:init)
+  | Vs_const k ->
+      Logs.info (fun m -> m "InitConst");
+      T_const k
+  | Vs_clos cl ->
+      Logs.info (fun m -> m "InitClos");
+      T_clos cl
+  | Vs_list vss ->
+      Logs.info (fun m -> m "InitArray");
+      T_list (List.map vss ~f:init)
   | Vs_comp ({ comp; arg } as comp_spec) ->
+      Logs.info (fun m -> m "InitCom");
       let path = perform Alloc_pt in
       let view =
         {
@@ -430,6 +472,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
   Logger.reconcile old_tree vs;
   match (old_tree, vs) with
   | T_list ts, Vs_list vss ->
+      Logs.info (fun m -> m "ReconcileArray");
       let len_ts = List.length ts in
       let len_vs = List.length vss in
       let ts, vs =
@@ -445,6 +488,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
         perform (Lookup_view path)
       in
       if Id.(comp = comp') then (
+        Logs.info (fun m -> m "ReconcileComEffect");
         Logger.update path arg;
         perform
           (Checkpoint
@@ -467,6 +511,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
         perform
           (Update_view
              (path, { view with dec = Decision.eff; children = new_tree }));
+
         perform
           (Checkpoint
              {
@@ -475,14 +520,24 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
                checkpoint = Render_finish path;
              });
         T_path path)
-      else init vs
-  | _, vs -> init vs
+      else (
+        Logs.info (fun m -> m "ReconcileComNew");
+        init vs)
+  | _, vs ->
+      Logs.info (fun m -> m "ReconcileOther");
+      init vs
 
 let rec check (t : tree) : bool =
   Logger.check t;
   match t with
-  | T_const _ | T_clos _ -> false
+  | T_const _ ->
+      Logs.info (fun m -> m "CheckConst");
+      false
+  | T_clos _ ->
+      Logs.info (fun m -> m "CheckClos");
+      false
   | T_list ts ->
+      Logs.info (fun m -> m "CheckArray");
       let updated = List.map ts ~f:check in
       List.exists updated ~f:Fn.id
   | T_path path ->
@@ -506,6 +561,7 @@ let rec check (t : tree) : bool =
         let vs = vs_of_value_exn vs in
 
         if view.dec.eff then (
+          Logs.info (fun m -> m "CheckEffect");
           let children = reconcile children vs in
           perform (Update_view (path, { view with children }));
           perform
@@ -516,7 +572,8 @@ let rec check (t : tree) : bool =
                  checkpoint = Render_finish path;
                });
           true)
-        else
+        else (
+          Logs.info (fun m -> m "CheckNoEffect");
           let b = check children in
           perform (Update_view (path, view));
           perform
@@ -526,26 +583,37 @@ let rec check (t : tree) : bool =
                  component_info = Some (comp, view.dec);
                  checkpoint = Render_cancel path;
                });
-          b)
-      else check children
+          b))
+      else (
+        Logs.info (fun m -> m "CheckIdle");
+        check children)
 
 let rec commit_effs (t : tree) : unit =
   Logger.commit_effs t;
   match t with
-  | T_const _ | T_clos _ -> ()
-  | T_list ts -> List.iter ts ~f:commit_effs
+  | T_const _ ->
+      Logs.info (fun m -> m "CommitEffsConst");
+      ()
+  | T_clos _ ->
+      Logs.info (fun m -> m "CommitEffsClos");
+      ()
+  | T_list ts ->
+      Logs.info (fun m -> m "CommitEffsArray");
+      List.iter ts ~f:commit_effs
   | T_path path ->
       let { children; dec; eff_q; _ } = perform (Lookup_view path) in
       commit_effs children;
 
       (* Refetch the view, as committing effects of children may change it *)
-      if dec.eff then
+      if dec.eff then (
+        Logs.info (fun m -> m "CommitEffsPath");
         Job_q.iter eff_q ~f:(fun { body; env; _ } ->
             (eval |> env_h ~env |> ph_h ~ph:P_normal) body |> ignore);
-      if dec.eff then
         perform
           (Tree_set_dec
-             (path, { (perform (Tree_get_dec path)) with eff = false }));
+             (path, { (perform (Tree_get_dec path)) with eff = false })))
+      else Logs.info (fun m -> m "CommitEffsPathIdle");
+
       let comp_name = perform (Tree_get_comp_name path) in
       let dec = perform (Tree_get_dec path) in
       perform
@@ -607,20 +675,20 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
 
   let driver () =
     let cnt = ref 1 in
-    Logs.info (fun m -> m "Step init %d" !cnt);
+    Logs.info (fun m -> m "StepInit (%d)" !cnt);
 
     let vs = top_exp |> eval |> vs_of_value_exn in
     let root = init vs in
     perform (Set_root root);
     let rec step = function
       | M_paint ->
-          Logs.info (fun m -> m "Step check %d" (!cnt + 1));
+          Logs.info (fun m -> m "StepCheck (%d)" (!cnt + 1));
           if check root then (
             Int.incr cnt;
             match fuel with Some n when !cnt >= n -> () | _ -> step M_react)
           else step M_eloop
       | M_react ->
-          Logs.info (fun m -> m "Step effect %d" (!cnt + 1));
+          Logs.info (fun m -> m "StepEffect (%d)" (!cnt + 1));
           commit_effs root;
           step M_paint
       | M_eloop -> (
@@ -630,7 +698,7 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
               Logs.info (fun m -> m "Terminate");
               ()
           | Some i ->
-              Logs.info (fun m -> m "Step loop [event: %d]" i);
+              Logs.info (fun m -> m "StepEvent [event: %d]" i);
               let clos = List.nth_exn (handlers root) i in
               (eval
               |> env_h ~env:(build_app_env clos (Const Unit))
