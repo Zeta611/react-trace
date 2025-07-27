@@ -7,8 +7,8 @@
     "test": "jest --config=jest.config.json"
   },
   "dependencies": {
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-error-boundary": "^5.0.0",
     "react-router-dom": "^7.3.0"
   },
