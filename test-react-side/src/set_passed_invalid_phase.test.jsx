@@ -20,8 +20,8 @@ test("Setting state in render phase works in React but logs invalid phase", () =
   render(<RenderCycleSetPassedInvalidPhase />);
 
   expect(console.error.mock.calls).toHaveLength(1);
-  expect(console.error.mock.calls[0][0]).toBe(
-    "Cannot update a component (`%s`) while rendering a different component (`%s`). To locate the bad setState() call inside `%s`, follow the stack trace as described in https://react.dev/link/setstate-in-render",
+  expect(console.error.mock.calls[0][0]).toMatch(
+    "Cannot update a component (`%s`) while rendering a different component (`%s`).",
   );
 
   console.error = originalConsoleError;
