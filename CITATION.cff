@@ -1,0 +1,47 @@
+cff-version: 1.2.0
+title: >-
+  Artifact for "React-tRace: A Semantics for Understanding
+  React Hooks"
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - given-names: Jay
+    family-names: Lee
+    email: jhlee@ropas.snu.ac.kr
+    affiliation: Seoul National University
+    orcid: 'https://orcid.org/0000-0002-2224-4861'
+  - given-names: Joongwon
+    family-names: Ahn
+    email: jwahn@ropas.snu.ac.kr
+    affiliation: Seoul National University
+    orcid: 'https://orcid.org/0009-0007-0055-7297'
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.15762431
+license: MIT
+commit: a40da7d23763ef62385313aa62f9d6e6cc1c6129
+version: v0.1.2
+date-released: '2025-08-21'
+preferred-citation:
+  type: article
+  authors:
+  - family-names: "Lee"
+    given-names: "Jay"
+    orcid: "https://orcid.org/0000-0002-2224-4861"
+  - family-names: "Ahn"
+    given-names: "Joongwon"
+    orcid: "https://orcid.org/0009-0007-0055-7297"
+  - family-names: "Yi"
+    given-names: "Kwangkeun"
+    orcid: "https://orcid.org/0009-0007-5027-2177"
+  doi: "10.1145/3763067"
+  journal: "Proc. ACM Program. Lang."
+  month: 10
+  title: "React-tRace: A Semantics for Understanding React Hooks: An Operational Semantics and a Visualizer for Clarifying React Hooks"
+  issue: "OOPSLA2"
+  volume: 9
+  year: 2025
+  publisher: "Association for Computing Machinery"
+  url: "https://doi.org/10.1145/3763067"
