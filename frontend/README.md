@@ -1,6 +1,6 @@
 # React-tRrace Frontend
 
-This is a frontend web interface for [React-tRrace](https://github.com/React-Analysis/react-trace).
+This is a frontend web interface for [React-tRrace](https://github.com/Zeta611/react-trace).
 
 ## Getting Started
 

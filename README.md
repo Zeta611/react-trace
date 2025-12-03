@@ -4,7 +4,7 @@ React-tRace is a React hooks reference interpreter based on a formal semantics. 
 
 ---
 
-[![Builds, tests & co](https://github.com/React-Analysis/react-trace/actions/workflows/ci.yml/badge.svg)](https://github.com/React-Analysis/react-trace/actions/workflows/ci.yml)
+[![Builds, tests & co](https://github.com/Zeta611/react-trace/actions/workflows/ci.yml/badge.svg)](https://github.com/Zeta611/react-trace/actions/workflows/ci.yml)
 
 ## What does it do?
 
