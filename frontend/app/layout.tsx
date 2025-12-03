@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Montserrat, DM_Serif_Display, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
-const notoSerif = DM_Serif_Display({
+const dmSerif = DM_Serif_Display({
   weight: "400",
   preload: false,
   variable: "--font-dm-serif-display",
@@ -21,8 +21,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "React-tRace",
-  description: "A React hooks interpreter based on a formal semantics",
+  title: "React-tRace Visualizer",
+  description: "A React Hooks visualizer based on a formal semantics",
 };
 
 export default function RootLayout({
@@ -33,7 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${notoSerif.variable} ${montserrat.variable} ${jetbrainsMono.variable} antialiased h-screen w-screen`}
+        className={`${dmSerif.variable} ${montserrat.variable} ${jetbrainsMono.variable} antialiased h-screen w-screen`}
       >
         {children}
       </body>
