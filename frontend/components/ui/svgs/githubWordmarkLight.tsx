@@ -5,7 +5,7 @@ const GithubWordmarkLight = (props: SVGProps<SVGSVGElement>) => (
     {...props}
     version="1.1"
     id="Layer_1"
-    xmlns:xlink="http://www.w3.org/1999/xlink"
+    xmlnsXlink="http://www.w3.org/1999/xlink"
     x="0px"
     y="0px"
     viewBox="0 0 249.1 67.5"
