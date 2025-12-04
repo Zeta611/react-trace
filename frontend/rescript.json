@@ -1,12 +1,7 @@
 {
-  "name": "react-trace-front",
+  "name": "react-trace-visualizer",
   "version": "0.1.0",
-  "sources": [
-    { "dir": "app", "subdirs": true },
-    { "dir": "bindings", "subdirs": true },
-    { "dir": "components", "subdirs": true },
-    { "dir": "shared", "subdirs": true }
-  ],
+  "sources": [{ "dir": "shared/react-trace", "subdirs": true }],
   "package-specs": [
     {
       "module": "esmodule",
@@ -14,10 +9,7 @@
     }
   ],
   "suffix": ".res.js",
-  "jsx": {
-    "version": 4,
-    "mode": "automatic"
-  },
-  "bs-dependencies": ["@rescript/core", "@rescript/react", "rescript-webapi"],
+  "bs-dependencies": ["@rescript/core"],
   "bsc-flags": ["-open RescriptCore"]
 }
+

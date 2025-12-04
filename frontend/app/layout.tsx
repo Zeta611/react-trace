@@ -1,23 +1,20 @@
 import type { Metadata } from "next";
-import { Montserrat, DM_Serif_Display, JetBrains_Mono } from "next/font/google";
+import { Lexend_Deca, Geist_Mono, Merriweather } from "next/font/google";
 import "./globals.css";
 
-const dmSerif = DM_Serif_Display({
-  weight: "400",
-  preload: false,
-  variable: "--font-dm-serif-display",
-});
-
-const montserrat = Montserrat({
-  weight: "500",
-  preload: false,
-  variable: "--font-noto-sans",
-});
-
-const jetbrainsMono = JetBrains_Mono({
+const merriweather = Merriweather({
+  variable: "--font-serif",
   subsets: ["latin"],
-  preload: false,
-  variable: "--font-jetbrains-mono",
+});
+
+const lexendDeca = Lexend_Deca({
+  variable: "--font-sans",
+  subsets: ["latin"],
+});
+
+const geistMono = Geist_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -33,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${dmSerif.variable} ${montserrat.variable} ${jetbrainsMono.variable} antialiased h-screen w-screen`}
+        className={`${lexendDeca.variable} ${geistMono.variable} ${merriweather.variable} antialiased`}
       >
         {children}
       </body>
