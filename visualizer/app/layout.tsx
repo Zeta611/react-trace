@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import { Lexend_Deca, Geist_Mono, Epunda_Slab } from "next/font/google";
+import { Lexend_Deca, Geist_Mono, Merriweather } from "next/font/google";
 import "./globals.css";
 
-const epundaSlab = Epunda_Slab({
+const merriweather = Merriweather({
   variable: "--font-serif",
   subsets: ["latin"],
 });
@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${lexendDeca.variable} ${geistMono.variable} ${epundaSlab.variable} antialiased`}
+        className={`${lexendDeca.variable} ${geistMono.variable} ${merriweather.variable} antialiased`}
       >
         {children}
       </body>

@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { javascript } from "@codemirror/lang-javascript";
+import { useAppState } from "@/store/use-app-state";
 
 export default function CodePane() {
-  const [code, setCode] = useState(`// Your code here
-`);
+  const code = useAppState.use.code();
+  const setCode = useAppState.use.setCode();
 
   return (
     <div className="h-full w-full">
