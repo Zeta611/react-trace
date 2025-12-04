@@ -1,5 +1,6 @@
 "use client";
 
+import { useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -17,6 +18,12 @@ import { GithubLight } from "@/ui/svgs/githubLight";
 import BackgroundMeteors from "@/ui/backgroundmeteors";
 
 export default function NavBar() {
+  const mounted = useSyncExternalStore(
+    () => () => {}, // nothing to subscribe to
+    () => true, // true on the client
+    () => false // false on the server
+  );
+
   return (
     <div className="relative border-b-2">
       <BackgroundMeteors className="absolute inset-0" />
@@ -37,35 +44,32 @@ export default function NavBar() {
               <span>React-tRace</span>
             </div>
           </Link>
-          <Menubar className="h-10.5">
-            <MenubarMenu>
-              <MenubarTrigger className="text-md font-medium">
-                File
-              </MenubarTrigger>
-              <MenubarContent>
-                <MenubarSub>
-                  <MenubarSubTrigger>Examples</MenubarSubTrigger>
-                  <MenubarSubContent>
-                    <MenubarItem onClick={() => console.log("Counter")}>
-                      Item
-                    </MenubarItem>
-                  </MenubarSubContent>
-                </MenubarSub>
-                <MenubarSeparator />
-                <MenubarItem>Save</MenubarItem>
-              </MenubarContent>
-            </MenubarMenu>
-            <MenubarMenu>
-              <MenubarTrigger className="text-md font-medium">
-                Settings
-              </MenubarTrigger>
-              {/* <MenubarContent>
-                <DialogTrigger asChild>
-                  <MenubarItem>API Key</MenubarItem>
-                </DialogTrigger>
-              </MenubarContent> */}
-            </MenubarMenu>
-          </Menubar>
+          {mounted && (
+            <Menubar className="h-10.5">
+              <MenubarMenu>
+                <MenubarTrigger className="text-md font-medium">
+                  File
+                </MenubarTrigger>
+                <MenubarContent>
+                  <MenubarSub>
+                    <MenubarSubTrigger>Examples</MenubarSubTrigger>
+                    <MenubarSubContent>
+                      <MenubarItem onClick={() => console.log("Counter")}>
+                        Item
+                      </MenubarItem>
+                    </MenubarSubContent>
+                  </MenubarSub>
+                  <MenubarSeparator />
+                  <MenubarItem>Save</MenubarItem>
+                </MenubarContent>
+              </MenubarMenu>
+              <MenubarMenu>
+                <MenubarTrigger className="text-md font-medium">
+                  Settings
+                </MenubarTrigger>
+              </MenubarMenu>
+            </Menubar>
+          )}
         </div>
         <Link href="https://github.com/Zeta611/react-trace" target="_blank">
           <GithubLight className="size-5.5 rounded-full bg-white" />

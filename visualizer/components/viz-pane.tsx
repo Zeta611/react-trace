@@ -1,53 +1,35 @@
 "use client";
 
-import { useCallback } from "react";
-import ReactFlow, {
-  Background,
-  Controls,
-  MiniMap,
-  Node,
-  Edge,
-  addEdge,
-  Connection,
-  useNodesState,
-  useEdgesState,
-} from "reactflow";
+import { useMemo } from "react";
+import ReactFlow, { Background, Controls } from "reactflow";
 import "reactflow/dist/style.css";
-
-const initialNodes: Node[] = [
-  {
-    id: "1",
-    type: "input",
-    data: { label: "Start" },
-    position: { x: 250, y: 100 },
-  },
-];
-
-const initialEdges: Edge[] = [];
+import { useAppState } from "@/store/use-app-state";
+import { treeToFlow } from "@/shared/tree-to-flow";
 
 export default function VizPane() {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const recording = useAppState.use.recording();
+  const currentStep = useAppState.use.currentStep();
 
-  const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
-  );
+  const treeData = useMemo(() => {
+    if (currentStep === 0 || !recording.checkpoints) {
+      return null;
+    }
+    const checkpoint = recording.checkpoints[currentStep - 1];
+    return checkpoint?.tree ?? null;
+  }, [recording, currentStep]);
+
+  const { nodes, edges } = useMemo(() => treeToFlow(treeData), [treeData]);
 
   return (
-    <div className="h-full w-full">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        fitView
-      >
-        <Background />
-        <Controls />
-        {/* <MiniMap /> */}
-      </ReactFlow>
-    </div>
+    <ReactFlow
+      key={currentStep}
+      nodes={nodes}
+      edges={edges}
+      proOptions={{ hideAttribution: true }}
+      fitView
+    >
+      <Background />
+      <Controls />
+    </ReactFlow>
   );
 }
