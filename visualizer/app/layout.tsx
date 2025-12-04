@@ -2,18 +2,18 @@ import type { Metadata } from "next";
 import { Lexend_Deca, Geist_Mono, Epunda_Slab } from "next/font/google";
 import "./globals.css";
 
+const epundaSlab = Epunda_Slab({
+  variable: "--font-serif",
+  subsets: ["latin"],
+});
+
 const lexendDeca = Lexend_Deca({
-  variable: "--font-lexend-deca",
+  variable: "--font-sans",
   subsets: ["latin"],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const epundaSlab = Epunda_Slab({
-  variable: "--font-epunda-slab",
+  variable: "--font-mono",
   subsets: ["latin"],
 });
 
