@@ -1,74 +1,5 @@
-import { Node, Edge } from "reactflow";
+import { Node, Edge } from "@xyflow/react";
 import { Tree } from "@/store/use-app-state";
-
-const NODE_WIDTH = 100;
-const NODE_HEIGHT = 40;
-const HORIZONTAL_SPACING = 50;
-const VERTICAL_SPACING = 80;
-
-type LayoutNode = {
-  id: string;
-  tree: Tree;
-  x: number;
-  y: number;
-  width: number;
-};
-
-function getSubtreeWidth(tree: Tree): number {
-  if (tree.children.length === 0) {
-    return NODE_WIDTH;
-  }
-
-  const childrenWidth = tree.children.reduce(
-    (sum, child) => sum + getSubtreeWidth(child) + HORIZONTAL_SPACING,
-    -HORIZONTAL_SPACING // Remove extra spacing after last child
-  );
-
-  return Math.max(NODE_WIDTH, childrenWidth);
-}
-
-function layoutTree(
-  tree: Tree,
-  x: number,
-  y: number,
-  idPrefix: string = ""
-): LayoutNode[] {
-  const result: LayoutNode[] = [];
-  const nodeId = idPrefix ? `${idPrefix}-${tree.path}` : tree.path || "root";
-
-  // Calculate total width of all children
-  const childWidths = tree.children.map((child) => getSubtreeWidth(child));
-  const totalChildrenWidth =
-    childWidths.reduce((sum, w) => sum + w + HORIZONTAL_SPACING, 0) -
-    (tree.children.length > 0 ? HORIZONTAL_SPACING : 0);
-
-  // Center this node above its children
-  const nodeX = x + (getSubtreeWidth(tree) - NODE_WIDTH) / 2;
-
-  result.push({
-    id: nodeId,
-    tree,
-    x: nodeX,
-    y,
-    width: NODE_WIDTH,
-  });
-
-  // Layout children
-  let childX = x + (getSubtreeWidth(tree) - totalChildrenWidth) / 2;
-  tree.children.forEach((child, index) => {
-    const childWidth = childWidths[index];
-    const childNodes = layoutTree(
-      child,
-      childX,
-      y + NODE_HEIGHT + VERTICAL_SPACING,
-      nodeId
-    );
-    result.push(...childNodes);
-    childX += childWidth + HORIZONTAL_SPACING;
-  });
-
-  return result;
-}
 
 export function treeToFlow(tree: Tree | null): {
   nodes: Node[];
@@ -78,37 +9,36 @@ export function treeToFlow(tree: Tree | null): {
     return { nodes: [], edges: [] };
   }
 
-  const layoutNodes = layoutTree(tree, 0, 0);
-
-  const nodes: Node[] = layoutNodes.map((ln) => ({
-    id: ln.id,
-    type: "default",
-    data: { label: ln.tree.name || ln.tree.path || "node" },
-    position: { x: ln.x, y: ln.y },
-    style: {
-      width: NODE_WIDTH,
-      height: NODE_HEIGHT,
-    },
-  }));
-
+  const nodes: Node[] = [];
   const edges: Edge[] = [];
 
-  // Create edges by traversing the tree again
-  function createEdges(tree: Tree, parentId: string) {
-    tree.children.forEach((child) => {
-      const childId = `${parentId}-${child.path}`;
+  function traverse(tree: Tree, parentId: string | null) {
+    const nodeId = parentId ? `${parentId}-${tree.path}` : tree.path || "root";
+
+    nodes.push({
+      id: nodeId,
+      type: "default",
+      data: { label: tree.name || tree.path || "node" },
+      position: { x: 0, y: 0 }, // Position will be computed by auto-layout
+      style: { opacity: 0 }, // Start invisible, auto-layout will make visible
+    });
+
+    if (parentId) {
       edges.push({
-        id: `e-${parentId}-${childId}`,
+        id: `e-${parentId}-${nodeId}`,
         source: parentId,
-        target: childId,
+        target: nodeId,
         type: "smoothstep",
+        style: { opacity: 0 },
       });
-      createEdges(child, childId);
+    }
+
+    tree.children.forEach((child) => {
+      traverse(child, nodeId);
     });
   }
 
-  const rootId = tree.path || "root";
-  createEdges(tree, rootId);
+  traverse(tree, null);
 
   return { nodes, edges };
 }
