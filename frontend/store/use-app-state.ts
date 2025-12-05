@@ -3,10 +3,25 @@ import { combine } from "zustand/middleware";
 import { run } from "@/shared/react-trace/ReacttRace.res.js";
 
 // Types matching the ReScript bindings
+export type StateEntry = {
+  label: string;
+  value: string;
+  queue_size: number;
+};
+
+export type DecisionInfo = {
+  chk: boolean;
+  eff: boolean;
+};
+
 export type Tree = {
   path: string;
   name: string;
   children: Tree[];
+  st_store?: StateEntry[];
+  eff_q_size?: number;
+  dec?: DecisionInfo;
+  arg?: string;
 };
 
 export type Entry = {

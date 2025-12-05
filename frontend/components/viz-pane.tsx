@@ -66,8 +66,8 @@ function VizPaneInner() {
     [treeData]
   );
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<TreeNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [nodes, setNodes] = useNodesState<TreeNode>([]);
+  const [edges, setEdges] = useEdgesState<Edge>([]);
 
   // Sync nodes/edges when tree data changes, preserving expanded states
   useEffect(() => {
@@ -90,13 +90,14 @@ function VizPaneInner() {
   );
 
   // Toggle expanded state on node click
-  const onNodeClick: NodeMouseHandler = useCallback(
+  const onNodeClick: NodeMouseHandler<TreeNode> = useCallback(
     (_, node) => {
+      if (!node.data.expandable) return;
+
       setNodes((nds) =>
         nds.map((n) => {
           if (n.id === node.id) {
             const newExpanded = !n.data.expanded;
-            // Persist to ref for future tree updates
             expandedStatesRef.current.set(n.id, newExpanded);
             return {
               ...n,
@@ -106,22 +107,20 @@ function VizPaneInner() {
           return n;
         })
       );
-      fitView({ duration: 150 });
     },
-    [fitView, setNodes]
+    [setNodes]
   );
 
-  // Fit view when visible nodes change
+  // Fit view when visible nodes count changes
+  const nodeCount = visibleNodes.length;
   useEffect(() => {
     fitView({ duration: 150 });
-  }, [visibleNodes, fitView]);
+  }, [nodeCount, fitView]);
 
   return (
     <ReactFlow
       nodes={visibleNodes}
       edges={visibleEdges}
-      onNodesChange={onNodesChange}
-      onEdgesChange={onEdgesChange}
       onNodeClick={onNodeClick}
       nodeTypes={nodeTypes}
       nodesDraggable={false}
