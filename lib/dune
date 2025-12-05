@@ -3,4 +3,9 @@
  (public_name react_trace)
  (preprocess
   (pps ppx_jane))
- (libraries react_trace.recorder_intf base logs flow_parser react_trace.domains))
+ (libraries
+  react_trace.recorder_intf
+  base
+  logs
+  flow_parser
+  react_trace.domains))

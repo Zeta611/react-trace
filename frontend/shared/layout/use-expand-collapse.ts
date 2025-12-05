@@ -35,16 +35,22 @@ export function useExpandCollapse(
   return useMemo(() => {
     if (nodes.length === 0) return { nodes, edges };
 
-    // Create a new dagre graph instance
+    // Create a new dagre graph instance with more spacing
     const dagre = new Dagre.graphlib.Graph()
       .setDefaultEdgeLabel(() => ({}))
-      .setGraph({ rankdir: "TB" });
+      .setGraph({
+        rankdir: "TB",
+        nodesep: 80, // Horizontal spacing between nodes
+        ranksep: 100, // Vertical spacing between ranks
+      });
 
     // Add each node to the dagre graph
+    // Use larger dimensions for component nodes (they have tables)
     for (const node of nodes) {
+      const isComponentNode = node.data.dec != null;
       dagre.setNode(node.id, {
-        width: treeWidth,
-        height: treeHeight,
+        width: isComponentNode ? 280 : treeWidth,
+        height: isComponentNode ? 200 : treeHeight,
         data: node.data,
       });
     }
@@ -62,22 +68,36 @@ export function useExpandCollapse(
     // Run the dagre layout algorithm
     Dagre.layout(dagre);
 
+    // Collect layouted tree nodes
+    const resultNodes: TreeNode[] = [];
+    const resultEdges: Edge[] = [];
+
+    for (const node of nodes) {
+      // Skip nodes that were filtered out (collapsed)
+      if (!dagre.hasNode(node.id)) continue;
+
+      const dagreNode = dagre.node(node.id);
+      // Dagre returns center positions, ReactFlow uses top-left
+      // Offset by half width/height to center the node
+      const position = {
+        x: dagreNode.x - dagreNode.width / 2,
+        y: dagreNode.y - dagreNode.height / 2,
+      };
+      const data = { ...node.data };
+
+      resultNodes.push({ ...node, position, data });
+    }
+
+    // Add tree edges (filtered to only include visible nodes)
+    for (const edge of edges) {
+      if (dagre.hasNode(edge.source) && dagre.hasNode(edge.target)) {
+        resultEdges.push(edge);
+      }
+    }
+
     return {
-      // Return layouted nodes, excluding any that were removed
-      nodes: nodes.flatMap((node) => {
-        // Skip nodes that were filtered out (collapsed)
-        if (!dagre.hasNode(node.id)) return [];
-
-        const { x, y } = dagre.node(node.id);
-        const position = { x, y };
-        // Create a new data object so React detects the change
-        const data = { ...node.data };
-
-        return [{ ...node, position, data }];
-      }),
-      edges: edges.filter(
-        (edge) => dagre.hasNode(edge.source) && dagre.hasNode(edge.target)
-      ),
+      nodes: resultNodes,
+      edges: resultEdges,
     };
   }, [nodes, edges, treeWidth, treeHeight]);
 }

@@ -1,4 +1,24 @@
-type rec tree = {"path": string, "name": string, "children": array<tree>}
+type stateEntry = {
+  "label": string,
+  "value": string,
+  "queue_size": int,
+}
+
+type decisionInfo = {
+  "chk": bool,
+  "eff": bool,
+}
+
+type rec tree = {
+  "path": string,
+  "name": string,
+  "children": array<tree>,
+  "st_store": option<array<stateEntry>>,
+  "eff_q_size": option<int>,
+  "dec": option<decisionInfo>,
+  "arg": option<string>,
+}
+
 type entry = {
   msg: string,
   tree: tree,

@@ -24,6 +24,11 @@ export function treeToFlow(tree: Tree | null): {
         label: tree.name || tree.path || "node",
         expanded: true,
         expandable: hasChildren,
+        // Pass through internal data for component nodes
+        stStore: tree.st_store,
+        effQSize: tree.eff_q_size,
+        dec: tree.dec,
+        arg: tree.arg,
       },
       position: { x: 0, y: 0 },
     });
