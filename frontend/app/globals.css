@@ -288,3 +288,13 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.553 0.013 58.071);
 }
+
+/* CodeMirror highlight for current source location */
+.cm-highlight-current {
+  background-color: rgba(254, 240, 138, 0.6); /* yellow-200 with opacity */
+  border-radius: 2px;
+}
+
+.dark .cm-highlight-current {
+  background-color: rgba(250, 204, 21, 0.4); /* yellow-400 with lower opacity for dark mode */
+}

@@ -254,11 +254,27 @@ let rec eval : type a. a Expr.t -> value =
           (match perform Rd_ph with
           | (P_init self_pt | P_succ self_pt) when Path.(path = self_pt) ->
               Logs.info (fun m -> m "AppSetComp");
+              perform
+                (Checkpoint
+                   {
+                     msg = "setter: queueing state update (during render)";
+                     component_info = None;
+                     checkpoint = Hook_eval Setter_call;
+                     loc = Some expr.loc;
+                   });
               perform (View_add_dec Decision.chk);
               let v, q = perform (View_lookup_st label) in
               perform (View_update_st (label, (v, Job_q.enqueue q clos)))
           | P_normal ->
               Logs.info (fun m -> m "AppSetNormal");
+              perform
+                (Checkpoint
+                   {
+                     msg = "setter: queueing state update (in effect/handler)";
+                     component_info = None;
+                     checkpoint = Hook_eval Setter_call;
+                     loc = Some expr.loc;
+                   });
               perform (Tree_add_dec (path, Decision.chk));
               let v, q = perform (Tree_lookup_st (path, label)) in
               perform (Tree_update_st (path, label, (v, Job_q.enqueue q clos)))
@@ -275,6 +291,14 @@ let rec eval : type a. a Expr.t -> value =
       match perform Rd_ph with
       | P_init _ ->
           Logs.info (fun m -> m "SttBind");
+          perform
+            (Checkpoint
+               {
+                 msg = "useState: initializing state";
+                 component_info = None;
+                 checkpoint = Hook_eval Use_state;
+                 loc = Some expr.loc;
+               });
           let v = eval init in
           perform (View_update_st (label, (v, Job_q.empty)));
           let env =
@@ -285,6 +309,14 @@ let rec eval : type a. a Expr.t -> value =
           perform (In_env env) eval body
       | P_succ _ ->
           Logs.info (fun m -> m "SttReBind");
+          perform
+            (Checkpoint
+               {
+                 msg = "useState: processing state updates";
+                 component_info = None;
+                 checkpoint = Hook_eval Use_state;
+                 loc = Some expr.loc;
+               });
           let v_old, q = perform (View_lookup_st label) in
           perform (View_update_st (label, (v_old, Job_q.empty)));
           (* Run the setting thunks in the set queue *)
@@ -307,6 +339,14 @@ let rec eval : type a. a Expr.t -> value =
   | Eff e ->
       Logs.info (fun m -> m "Eff");
       (match perform Rd_ph with P_normal -> raise Invalid_phase | _ -> ());
+      perform
+        (Checkpoint
+           {
+             msg = "useEffect: queueing effect";
+             component_info = None;
+             checkpoint = Hook_eval Use_effect;
+             loc = Some expr.loc;
+           });
       let env = perform Rd_env in
       perform (View_enq_eff { self = None; param = Id.unit; body = e; env });
       Const Unit
@@ -412,6 +452,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
            msg = "Retrying due to state changes";
            component_info = Some (comp_name, decision);
            checkpoint = Retry_start (re_render, path);
+           loc = None;
          });
     ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr)
   else (
@@ -455,6 +496,7 @@ let rec init (vs : view_spec) : tree =
              msg = "Starting initialization";
              component_info = Some (comp, Decision.idle);
              checkpoint = Render_check path;
+             loc = None;
            });
       let t = init vs in
       perform
@@ -465,6 +507,7 @@ let rec init (vs : view_spec) : tree =
              msg = "Initialization completed successfully";
              component_info = Some (comp, Decision.eff);
              checkpoint = Render_finish path;
+             loc = None;
            });
       T_path path
 
@@ -496,6 +539,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
                msg = "Starting update render due to prop changes";
                component_info = Some (comp, Decision.idle);
                checkpoint = Render_check path;
+               loc = None;
              });
         let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
         let env = Env.extend Env.empty ~id:param ~value:arg in
@@ -518,6 +562,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
                msg = "Update render completed successfully";
                component_info = Some (comp, Decision.eff);
                checkpoint = Render_finish path;
+               loc = None;
              });
         T_path path)
       else (
@@ -551,6 +596,7 @@ let rec check (t : tree) : bool =
                msg = "Starting render due to state or prop changes";
                component_info = Some (comp, perform (Tree_get_dec path));
                checkpoint = Render_check path;
+               loc = None;
              });
         let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
         let env = Env.extend Env.empty ~id:param ~value:arg in
@@ -570,6 +616,7 @@ let rec check (t : tree) : bool =
                  msg = "Render completed with updates";
                  component_info = Some (comp, view.dec);
                  checkpoint = Render_finish path;
+                 loc = None;
                });
           true)
         else (
@@ -582,6 +629,7 @@ let rec check (t : tree) : bool =
                  msg = "Render skipped - no changes needed";
                  component_info = Some (comp, view.dec);
                  checkpoint = Render_cancel path;
+                 loc = None;
                });
           b))
       else (
@@ -622,6 +670,7 @@ let rec commit_effs (t : tree) : unit =
              msg = "Effects have been committed";
              component_info = Some (comp_name, dec);
              checkpoint = Effects_finish path;
+             loc = None;
            })
 
 let rec top_exp : Prog.t -> Expr.hook_free_t = function
@@ -655,6 +704,7 @@ let step_loop i (t : tree) : unit =
          msg = "Event handler executed";
          component_info = None;
          checkpoint = Event i;
+         loc = None;
        })
 
 type 'recording run_info = {
@@ -711,6 +761,7 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
                      msg = "Event handler executed";
                      component_info = None;
                      checkpoint = Event i;
+                     loc = None;
                    });
               step M_paint)
     in

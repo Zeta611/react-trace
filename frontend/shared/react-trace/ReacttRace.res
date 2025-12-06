@@ -19,9 +19,17 @@ type rec tree = {
   "arg": option<string>,
 }
 
+type sourceLoc = {
+  "start_line": int,
+  "start_col": int,
+  "end_line": int,
+  "end_col": int,
+}
+
 type entry = {
   msg: string,
   tree: tree,
+  source_loc: option<sourceLoc>,
 }
 type result = {
   checkpoints?: array<entry>,

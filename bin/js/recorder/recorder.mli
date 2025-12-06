@@ -14,7 +14,16 @@ type tree = {
 }
 [@@deriving yojson_of]
 
-type view = { msg : string; tree : tree } [@@deriving yojson_of]
+type source_loc = {
+  start_line : int;
+  start_col : int;
+  end_line : int;
+  end_col : int;
+}
+[@@deriving yojson_of]
+
+type view = { msg : string; tree : tree; source_loc : source_loc option }
+[@@deriving yojson_of]
 
 type recording = {
   checkpoints : view list;

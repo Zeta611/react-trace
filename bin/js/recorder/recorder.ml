@@ -15,7 +15,24 @@ let get_path_from_checkpoint = function
   | Render_cancel pt
   | Effects_finish pt ->
       Some pt
-  | Event _ -> None
+  | Event _ | Hook_eval _ -> None
+
+type source_loc = {
+  start_line : int;
+  start_col : int;
+  end_line : int;
+  end_col : int;
+}
+[@@deriving yojson_of]
+
+let source_loc_of_location (loc : Location.t) : source_loc =
+  let open Lexing in
+  {
+    start_line = loc.loc_start.pos_lnum;
+    start_col = loc.loc_start.pos_cnum - loc.loc_start.pos_bol;
+    end_line = loc.loc_end.pos_lnum;
+    end_col = loc.loc_end.pos_cnum - loc.loc_end.pos_bol;
+  }
 
 type state_entry = { label : string; value : string; queue_size : int }
 [@@deriving yojson_of]
@@ -33,7 +50,8 @@ type tree = {
 }
 [@@deriving yojson_of]
 
-type view = { msg : string; tree : tree } [@@deriving yojson_of]
+type view = { msg : string; tree : tree; source_loc : source_loc option }
+[@@deriving yojson_of]
 
 type recording = {
   checkpoints : view list;
@@ -192,7 +210,7 @@ let event_h (type a b) (f : a -> b) (x : a) :
   | effect Set_root t, k ->
       fun ~recording ->
         continue k () ~recording:{ recording with root = Some t }
-  | effect Checkpoint { msg; component_info; checkpoint }, k ->
+  | effect Checkpoint { msg; component_info; checkpoint; loc }, k ->
       fun ~recording ->
         let pt = get_path_from_checkpoint checkpoint in
 
@@ -222,6 +240,14 @@ let event_h (type a b) (f : a -> b) (x : a) :
               Printf.sprintf
                 ":effects: [%s] Component '%s' {chk:%b; eff:%b}: %s" path_str
                 name dec.chk dec.eff msg
+          | Hook_eval kind, _ ->
+              let kind_str =
+                match kind with
+                | Use_state -> "useState"
+                | Use_effect -> "useEffect"
+                | Setter_call -> "setter"
+              in
+              Printf.sprintf ":hook: [%s]: %s" kind_str msg
           | _, None ->
               (* This shouldn't happen unless we missed a component name
                  somewhere *)
@@ -229,10 +255,12 @@ let event_h (type a b) (f : a -> b) (x : a) :
         in
         let root = Option.value ~default:(T_const Unit) recording.root in
         let tree = tree root in
+        let source_loc = Option.map loc ~f:source_loc_of_location in
         let recording =
           {
             recording with
-            checkpoints = { msg = formatted_msg; tree } :: recording.checkpoints;
+            checkpoints =
+              { msg = formatted_msg; tree; source_loc } :: recording.checkpoints;
           }
         in
         continue k () ~recording
