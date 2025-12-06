@@ -60,6 +60,7 @@ type _ eff += Listen : int option eff
 
 (* tree memory effects for instrumentation *)
 type _ eff += Set_root : tree -> unit eff
+type hook_kind = Use_state | Use_effect | Setter_call
 
 type checkpoint =
   | Retry_start of (int * Path.t)
@@ -68,12 +69,14 @@ type checkpoint =
   | Render_cancel of Path.t
   | Effects_finish of Path.t
   | Event of int
+  | Hook_eval of hook_kind
 
 type _ eff +=
   | Checkpoint : {
       msg : string;
       component_info : (string * decision) option;
       checkpoint : checkpoint;
+      loc : Location.t option;
     }
       -> unit eff
 

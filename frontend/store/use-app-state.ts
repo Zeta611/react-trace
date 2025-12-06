@@ -24,9 +24,17 @@ export type Tree = {
   arg?: string;
 };
 
+export type SourceLoc = {
+  start_line: number;
+  start_col: number;
+  end_line: number;
+  end_col: number;
+};
+
 export type Entry = {
   msg: string;
   tree: Tree;
+  source_loc?: SourceLoc;
 };
 
 export type Recording = {
@@ -85,6 +93,7 @@ const replaceEmojis = (s: string) =>
     .replace(":finish:", "✅")
     .replace(":cancel:", "⏩")
     .replace(":effects:", "⚙️")
+    .replace(":hook:", "🪝")
     .replace(":default:", "🔄");
 
 export type AppState = ExtractState<typeof useAppState>;
@@ -123,6 +132,14 @@ export const useAppState = createSelectors(
             .slice(0, currentStep)
             .map((x) => replaceEmojis(x.msg))
             .join("\n");
+        },
+        getCurrentLoc: () => {
+          const { recording, currentStep } = get();
+          if (currentStep === 0 || !recording.checkpoints) {
+            return null;
+          }
+          const checkpoint = recording.checkpoints[currentStep - 1];
+          return checkpoint?.source_loc ?? null;
         },
 
         // Actions
