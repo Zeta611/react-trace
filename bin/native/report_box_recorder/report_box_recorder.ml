@@ -73,7 +73,7 @@ let event_h (type a b) (f : a -> b) (x : a) :
     recording:recording -> b * recording =
   match f x with
   | v -> fun ~recording -> (v, recording)
-  | effect Checkpoint { msg; component_info; checkpoint }, k -> (
+  | effect Checkpoint { msg; component_info; checkpoint; loc = _ }, k -> (
       fun ~recording ->
         try
           let root = Option.value_exn (snd recording) in
@@ -131,6 +131,15 @@ let event_h (type a b) (f : a -> b) (x : a) :
                     [
                       text_with_style Style.bold
                         (Printf.sprintf "⚙️ %s (chk:%b,eff:%b)" name dec.chk
+                           dec.eff);
+                      text msg;
+                    ])
+            | Hook_eval _, Some (name, dec) ->
+                B.(
+                  vlist
+                    [
+                      text_with_style Style.bold
+                        (Printf.sprintf "🪝 %s (chk:%b,eff:%b)" name dec.chk
                            dec.eff);
                       text msg;
                     ])
