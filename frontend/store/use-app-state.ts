@@ -148,8 +148,12 @@ export const useAppState = createSelectors(
           const steps = recording.checkpoints?.length ?? 0;
           set({ code, recording, currentStep: steps });
         },
-        setCurrentStep: (step: number) => {
-          set({ currentStep: step });
+        setCurrentStep: (step: number | ((prev: number) => number)) => {
+          set((prev) => ({
+            ...prev,
+            currentStep:
+              typeof step === "function" ? step(prev.currentStep) : step,
+          }));
         },
       })
     )
