@@ -439,13 +439,21 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
 
   perform View_flush_eff;
   perform (View_set_dec { (perform View_get_dec) with chk = false });
-  let v = eval expr in
   let path = perform Rd_pt in
+  let comp_name = perform View_get_comp_name in
+  let decision = perform View_get_dec in
+  perform
+    (Checkpoint
+       {
+         msg = Printf.sprintf "Starting render pass (attempt %d)" re_render;
+         component_info = Some (comp_name, decision);
+         checkpoint = Render_check path;
+         loc = None;
+       });
+  let v = eval expr in
   if (perform View_get_dec).chk then (
     Logs.info (fun m -> m "EvalMult");
     let re_render = re_render + 1 in
-    let comp_name = perform View_get_comp_name in
-    let decision = perform View_get_dec in
     perform
       (Checkpoint
          {
@@ -485,11 +493,6 @@ let rec init (vs : view_spec) : tree =
       in
       let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
       let env = Env.extend Env.empty ~id:param ~value:arg in
-      let vs, view =
-        (eval_mult |> env_h ~env |> view_h ~view |> ph_h ~ph:(P_init path)) body
-      in
-      let vs = vs_of_value_exn vs in
-      perform (Update_view (path, view));
       perform
         (Checkpoint
            {
@@ -498,6 +501,11 @@ let rec init (vs : view_spec) : tree =
              checkpoint = Render_check path;
              loc = None;
            });
+      let vs, view =
+        (eval_mult |> env_h ~env |> view_h ~view |> ph_h ~ph:(P_init path)) body
+      in
+      let vs = vs_of_value_exn vs in
+      perform (Update_view (path, view));
       let t = init vs in
       perform
         (Update_view (path, { view with dec = Decision.eff; children = t }));
