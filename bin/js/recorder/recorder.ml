@@ -8,15 +8,6 @@ open Concrete_domains
 open Interp_effects
 include Recorder_intf
 
-let get_path_from_checkpoint = function
-  | Retry_start (_, pt)
-  | Render_check pt
-  | Render_finish pt
-  | Render_cancel pt
-  | Effects_finish pt ->
-      Some pt
-  | Event _ | Hook_eval _ -> None
-
 type source_loc = {
   start_line : int;
   start_col : int;
@@ -212,8 +203,6 @@ let event_h (type a b) (f : a -> b) (x : a) :
         continue k () ~recording:{ recording with root = Some t }
   | effect Checkpoint { msg; component_info; checkpoint; loc }, k ->
       fun ~recording ->
-        let pt = get_path_from_checkpoint checkpoint in
-
         (* Format message based on checkpoint type *)
         let formatted_msg =
           match (checkpoint, component_info) with
