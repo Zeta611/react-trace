@@ -27,14 +27,14 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         />
 
         <div className="relative flex gap-1.5 h-6 items-center">
-          <span className="font-mono font-medium text-card-foreground text-center leading-none text-sm">
+          <span className="font-mono font-bold text-card-foreground text-center leading-none text-sm">
             {data.label}
           </span>
         </div>
 
         {data.expandable && (
           <span
-            className="absolute -bottom-3 left-1/2 -translate-x-1/2 translate-y-1/2 flex items-center justify-center size-3.5 text-[6pt] font-bold leading-none border-[1.5px] border-border bg-primary text-primary-foreground"
+            className="absolute -bottom-3 left-1/2 -translate-x-1/2 translate-y-1/2 flex items-center justify-center size-3.5 text-[6pt] font-black leading-none border-[1.5px] border-border bg-primary text-primary-foreground"
             aria-label={data.expanded ? "Collapse" : "Expand"}
             aria-expanded={data.expanded}
             role="button"
@@ -69,7 +69,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         style={{ boxShadow: "3px 3px 0 0 var(--border)" }}
       >
         {/* Header with component name */}
-        <div className="px-3 py-1.5 border-b border-border bg-muted/50 font-semibold text-card-foreground flex items-center justify-between">
+        <div className="px-3 py-1.5 border-b border-border bg-blue-400 font-semibold text-card-foreground flex items-center justify-between">
           <span className="text-sm">{data.label}</span>
           <span className="text-muted-foreground text-[10px]">component</span>
         </div>
@@ -77,7 +77,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         {/* Arg */}
         {data.arg && (
           <div className="px-3 py-1.5 border-b border-border">
-            <span className="text-muted-foreground">arg: </span>
+            <span className="text-muted-foreground font-bold">arg: </span>
             <span className="text-foreground">{data.arg}</span>
           </div>
         )}
@@ -85,7 +85,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         {/* Decision flags */}
         <div className="px-3 py-1.5 border-b border-border flex gap-3">
           <span>
-            <span className="text-muted-foreground">chk: </span>
+            <span className="text-muted-foreground font-bold">chk: </span>
             <span
               className={data.dec!.chk ? "text-amber-600" : "text-foreground"}
             >
@@ -93,7 +93,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
             </span>
           </span>
           <span>
-            <span className="text-muted-foreground">eff: </span>
+            <span className="text-muted-foreground font-bold">eff: </span>
             <span
               className={data.dec!.eff ? "text-green-600" : "text-foreground"}
             >
@@ -105,7 +105,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         {/* Effect queue */}
         {data.effQSize != null && (
           <div className="px-3 py-1.5 border-b border-border">
-            <span className="text-muted-foreground">eff_q: </span>
+            <span className="text-muted-foreground font-bold">eff_q: </span>
             <span className={hasEffects ? "text-blue-600" : "text-foreground"}>
               {data.effQSize} pending
             </span>
@@ -115,7 +115,9 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         {/* State store table */}
         {hasState && (
           <div className="px-3 py-1.5">
-            <div className="text-muted-foreground mb-1">st_store:</div>
+            <div className="text-muted-foreground mb-1 font-bold">
+              st_store:{" "}
+            </div>
             <table className="w-full text-left">
               <thead>
                 <tr className="text-muted-foreground border-b border-border/50">
@@ -148,7 +150,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
 
       {data.expandable && (
         <span
-          className="absolute -bottom-3 left-1/2 -translate-x-1/2 translate-y-1/2 flex items-center justify-center size-3.5 text-[6pt] font-bold leading-none border-[1.5px] border-border bg-primary text-primary-foreground"
+          className="absolute -bottom-3 left-1/2 -translate-x-1/2 translate-y-1/2 flex items-center justify-center size-3.5 text-[6pt] font-black leading-none border-[1.5px] border-border bg-primary text-primary-foreground"
           aria-label={data.expanded ? "Collapse" : "Expand"}
           aria-expanded={data.expanded}
           role="button"
