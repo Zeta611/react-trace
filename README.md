@@ -1,6 +1,6 @@
 <img src="https://github.com/user-attachments/assets/8d07d3bd-1dc7-4156-9a40-314a38ebe540" alt="React-tRace logo">
 
-React-tRace is a React hooks reference interpreter based on a formal semantics. It interprets React-like components, tracking render cycles, state updates, and effect executions to detect inefficient re-renders at runtime.
+React-tRace is a React Hooks reference interpreter based on a formal semantics. It interprets React-like components, tracking render cycles, state updates, and effect executions to detect inefficient re-renders at runtime.
 
 ---
 
@@ -12,7 +12,7 @@ React-tRace is a React hooks reference interpreter based on a formal semantics. 
 - **Tracks rendering behavior**: Models component renders, state updates, and effect execution
 - **Detects inefficiencies**: Identifies unnecessary re-renders and problematic update patterns
 
-React-tRace implements core React hooks functionality (useState, useEffect) and maintains a component tree to model how React would process your components.
+React-tRace implements core React Hooks functionality (useState, useEffect) and maintains a component tree to model how React would process your components.
 
 ## Developing
 
