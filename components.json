@@ -4,18 +4,22 @@
   "rsc": true,
   "tsx": true,
   "tailwind": {
-    "config": "tailwind.config.ts",
+    "config": "",
     "css": "app/globals.css",
-    "baseColor": "zinc",
+    "baseColor": "stone",
     "cssVariables": true,
     "prefix": ""
   },
+  "iconLibrary": "lucide",
   "aliases": {
     "components": "@/components",
     "utils": "@/shared/utils",
-    "ui": "@/components/shadcn-ui",
-    "lib": "@/lib",
+    "ui": "@/components/ui",
     "hooks": "@/hooks"
   },
-  "iconLibrary": "lucide"
+  "registries": {
+    "@svgl": "https://svgl.app/r/{name}.json",
+    "@scrollxui": "https://www.scrollxui.dev/registry/{name}.json",
+    "@retroui": "https://retroui.dev/r/{name}.json"
+  }
 }
