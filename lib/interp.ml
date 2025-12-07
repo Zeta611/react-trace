@@ -257,7 +257,7 @@ let rec eval : type a. a Expr.t -> value =
               perform
                 (Checkpoint
                    {
-                     msg = "setter: queueing state update (during render)";
+                     msg = "State update queued (during render)";
                      component_info = None;
                      checkpoint = Hook_eval Setter_call;
                      loc = Some expr.loc;
@@ -270,7 +270,7 @@ let rec eval : type a. a Expr.t -> value =
               perform
                 (Checkpoint
                    {
-                     msg = "setter: queueing state update (in effect/handler)";
+                     msg = "State update queued (in effect)";
                      component_info = None;
                      checkpoint = Hook_eval Setter_call;
                      loc = Some expr.loc;
@@ -294,7 +294,7 @@ let rec eval : type a. a Expr.t -> value =
           perform
             (Checkpoint
                {
-                 msg = "useState: initializing state";
+                 msg = "Initializing state";
                  component_info = None;
                  checkpoint = Hook_eval Use_state;
                  loc = Some expr.loc;
@@ -312,7 +312,7 @@ let rec eval : type a. a Expr.t -> value =
           perform
             (Checkpoint
                {
-                 msg = "useState: processing state updates";
+                 msg = "Processing state updates";
                  component_info = None;
                  checkpoint = Hook_eval Use_state;
                  loc = Some expr.loc;
@@ -342,7 +342,7 @@ let rec eval : type a. a Expr.t -> value =
       perform
         (Checkpoint
            {
-             msg = "useEffect: queueing effect";
+             msg = "Effect scheduled";
              component_info = None;
              checkpoint = Hook_eval Use_effect;
              loc = Some expr.loc;
@@ -445,7 +445,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
   perform
     (Checkpoint
        {
-         msg = Printf.sprintf "Starting render pass (attempt %d)" re_render;
+         msg = Printf.sprintf "Render pass (attempt %d)" re_render;
          component_info = Some (comp_name, decision);
          checkpoint = Render_check path;
          loc = None;
@@ -457,7 +457,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
     perform
       (Checkpoint
          {
-           msg = "Retrying due to state changes";
+           msg = "Re-rendering due to state change";
            component_info = Some (comp_name, decision);
            checkpoint = Retry_start (re_render, path);
            loc = None;
@@ -496,7 +496,7 @@ let rec init (vs : view_spec) : tree =
       perform
         (Checkpoint
            {
-             msg = "Starting initialization";
+             msg = "Mounting";
              component_info = Some (comp, Decision.idle);
              checkpoint = Render_check path;
              loc = None;
@@ -512,7 +512,7 @@ let rec init (vs : view_spec) : tree =
       perform
         (Checkpoint
            {
-             msg = "Initialization completed successfully";
+             msg = "Mounted";
              component_info = Some (comp, Decision.eff);
              checkpoint = Render_finish path;
              loc = None;
@@ -544,7 +544,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
         perform
           (Checkpoint
              {
-               msg = "Starting update render due to prop changes";
+               msg = "Re-rendering (props changed)";
                component_info = Some (comp, Decision.idle);
                checkpoint = Render_check path;
                loc = None;
@@ -567,7 +567,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
         perform
           (Checkpoint
              {
-               msg = "Update render completed successfully";
+               msg = "Re-render complete";
                component_info = Some (comp, Decision.eff);
                checkpoint = Render_finish path;
                loc = None;
@@ -601,7 +601,7 @@ let rec check (t : tree) : bool =
         perform
           (Checkpoint
              {
-               msg = "Starting render due to state or prop changes";
+               msg = "Re-rendering (state changed)";
                component_info = Some (comp, perform (Tree_get_dec path));
                checkpoint = Render_check path;
                loc = None;
@@ -621,7 +621,7 @@ let rec check (t : tree) : bool =
           perform
             (Checkpoint
                {
-                 msg = "Render completed with updates";
+                 msg = "Rendered with updates";
                  component_info = Some (comp, view.dec);
                  checkpoint = Render_finish path;
                  loc = None;
@@ -634,7 +634,7 @@ let rec check (t : tree) : bool =
           perform
             (Checkpoint
                {
-                 msg = "Render skipped - no changes needed";
+                 msg = "Render skipped (no changes)";
                  component_info = Some (comp, view.dec);
                  checkpoint = Render_cancel path;
                  loc = None;
@@ -675,7 +675,7 @@ let rec commit_effs (t : tree) : unit =
       perform
         (Checkpoint
            {
-             msg = "Effects have been committed";
+             msg = "Effects committed";
              component_info = Some (comp_name, dec);
              checkpoint = Effects_finish path;
              loc = None;

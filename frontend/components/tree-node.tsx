@@ -68,10 +68,27 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         className="border-[1.5px] border-border bg-card text-xs font-mono"
         style={{ boxShadow: "3px 3px 0 0 var(--border)" }}
       >
-        {/* Header with component name */}
+        {/* Header with component name and status indicators */}
         <div className="px-3 py-1.5 border-b border-border bg-blue-400 font-semibold text-card-foreground flex items-center justify-between">
           <span className="text-sm">{data.label}</span>
-          <span className="text-muted-foreground text-[10px]">component</span>
+          <div className="flex items-center gap-1.5">
+            {/* Check flag indicator */}
+            <span
+              className={cn(
+                "size-2.5 rounded-full border border-black",
+                data.dec!.chk ? "bg-red-500" : "bg-gray-300"
+              )}
+              title={`chk: ${data.dec!.chk}`}
+            />
+            {/* Effect flag indicator */}
+            <span
+              className={cn(
+                "size-2.5 rounded-full border border-black",
+                data.dec!.eff ? "bg-green-500" : "bg-gray-300"
+              )}
+              title={`eff: ${data.dec!.eff}`}
+            />
+          </div>
         </div>
 
         {/* Arg */}
@@ -82,31 +99,17 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
           </div>
         )}
 
-        {/* Decision flags */}
-        <div className="px-3 py-1.5 border-b border-border flex gap-3">
-          <span>
-            <span className="text-muted-foreground font-bold">chk: </span>
-            <span
-              className={data.dec!.chk ? "text-amber-600" : "text-foreground"}
-            >
-              {data.dec!.chk ? "true" : "false"}
-            </span>
-          </span>
-          <span>
-            <span className="text-muted-foreground font-bold">eff: </span>
-            <span
-              className={data.dec!.eff ? "text-green-600" : "text-foreground"}
-            >
-              {data.dec!.eff ? "true" : "false"}
-            </span>
-          </span>
-        </div>
-
         {/* Effect queue */}
         {data.effQSize != null && (
           <div className="px-3 py-1.5 border-b border-border">
             <span className="text-muted-foreground font-bold">eff_q: </span>
-            <span className={hasEffects ? "text-blue-600" : "text-foreground"}>
+            <span
+              className={
+                hasEffects && data.dec!.eff
+                  ? "text-green-500"
+                  : "text-muted-foreground"
+              }
+            >
               {data.effQSize} pending
             </span>
           </div>
@@ -129,13 +132,15 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
               <tbody>
                 {data.stStore!.map((entry, i) => (
                   <tr key={i} className="text-foreground">
-                    <td className="pr-2 py-0.5 text-purple-600">
-                      {entry.label}
-                    </td>
+                    <td className="pr-2 py-0.5">{entry.label}</td>
                     <td className="pr-2 py-0.5">{entry.value}</td>
                     <td className="py-0.5">
                       <span
-                        className={entry.queue_size > 0 ? "text-amber-600" : ""}
+                        className={
+                          entry.queue_size > 0
+                            ? "text-red-500"
+                            : "text-muted-foreground"
+                        }
                       >
                         {entry.queue_size}
                       </span>
