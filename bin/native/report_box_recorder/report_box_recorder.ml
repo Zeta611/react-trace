@@ -134,15 +134,21 @@ let event_h (type a b) (f : a -> b) (x : a) :
                            dec.eff);
                       text msg;
                     ])
-            | Hook_eval _, Some (name, dec) ->
-                B.(
-                  vlist
-                    [
-                      text_with_style Style.bold
-                        (Printf.sprintf "🪝 %s (chk:%b,eff:%b)" name dec.chk
-                           dec.eff);
-                      text msg;
-                    ])
+            | Hook_eval kind, component_info ->
+                let hook =
+                  match kind with
+                  | Use_state -> "useState"
+                  | Use_effect -> "useEffect"
+                  | Setter_call -> "setter"
+                in
+                let header =
+                  match component_info with
+                  | Some (name, dec) ->
+                      Printf.sprintf "🪝 %s %s (chk:%b,eff:%b)" hook name dec.chk
+                        dec.eff
+                  | None -> Printf.sprintf "🪝 %s" hook
+                in
+                B.(vlist [ text_with_style Style.bold header; text msg ])
             | _, None -> B.text msg
           in
 
@@ -153,6 +159,21 @@ let event_h (type a b) (f : a -> b) (x : a) :
           let formatted_msg =
             match (checkpoint, component_info) with
             | Event i, _ -> Printf.sprintf "Event %d: %s" i msg
+            | Hook_eval kind, component_info ->
+                let hook =
+                  match kind with
+                  | Use_state -> "useState"
+                  | Use_effect -> "useEffect"
+                  | Setter_call -> "setter"
+                in
+                let prefix =
+                  match component_info with
+                  | Some (name, dec) ->
+                      Printf.sprintf "%s/%s (chk:%b,eff:%b)" name hook dec.chk
+                        dec.eff
+                  | None -> Printf.sprintf "Hook %s" hook
+                in
+                Printf.sprintf "%s: %s" prefix msg
             | _, Some (name, dec) ->
                 Printf.sprintf "%s (chk:%b,eff:%b): %s" name dec.chk dec.eff msg
             | _, None -> msg
