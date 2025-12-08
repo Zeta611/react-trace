@@ -94,7 +94,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         {/* Arg */}
         {data.arg && (
           <div className="px-3 py-1.5 border-b border-border">
-            <span className="text-muted-foreground font-bold">arg: </span>
+            <span className="text-muted-foreground font-bold">Arg: </span>
             <span className="text-foreground">{data.arg}</span>
           </div>
         )}
@@ -102,7 +102,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         {/* Effect queue */}
         {data.effQSize != null && (
           <div className="px-3 py-1.5 border-b border-border">
-            <span className="text-muted-foreground font-bold">eff_q: </span>
+            <span className="text-muted-foreground font-bold">Effects: </span>
             <span
               className={
                 hasEffects && data.dec!.eff
@@ -110,7 +110,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
                   : "text-muted-foreground"
               }
             >
-              {data.effQSize} pending
+              {data.effQSize} mounted
             </span>
           </div>
         )}
@@ -118,9 +118,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         {/* State store table */}
         {hasState && (
           <div className="px-3 py-1.5">
-            <div className="text-muted-foreground mb-1 font-bold">
-              st_store:{" "}
-            </div>
+            <div className="text-muted-foreground mb-1 font-bold">States: </div>
             <table className="w-full text-left">
               <thead>
                 <tr className="text-muted-foreground border-b border-border/50">
