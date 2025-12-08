@@ -437,7 +437,6 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
   (try if re_render >= perform Re_render_limit then raise Too_many_re_renders
    with Stdlib.Effect.Unhandled Re_render_limit -> ());
 
-  perform View_flush_eff;
   perform (View_set_dec { (perform View_get_dec) with chk = false });
   let path = perform Rd_pt in
   let comp_name = perform View_get_comp_name in
@@ -462,6 +461,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
            checkpoint = Retry_start (re_render, path);
            loc = None;
          });
+    perform View_flush_eff;
     ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr)
   else (
     Logs.info (fun m -> m "EvalOnce");
@@ -667,7 +667,8 @@ let rec commit_effs (t : tree) : unit =
             (eval |> env_h ~env |> ph_h ~ph:P_normal) body |> ignore);
         perform
           (Tree_set_dec
-             (path, { (perform (Tree_get_dec path)) with eff = false })))
+             (path, { (perform (Tree_get_dec path)) with eff = false }));
+        perform (Tree_flush_eff path))
       else Logs.info (fun m -> m "CommitEffsPathIdle");
 
       let comp_name = perform (Tree_get_comp_name path) in

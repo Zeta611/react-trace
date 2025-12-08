@@ -1,5 +1,5 @@
 {
-  "name": "react-trace-visualizer",
+  "name": "visualizer",
   "version": "0.1.0",
   "sources": [{ "dir": "shared/react-trace", "subdirs": true }],
   "package-specs": [
@@ -8,8 +8,5 @@
       "in-source": true
     }
   ],
-  "suffix": ".res.js",
-  "bs-dependencies": ["@rescript/core"],
-  "bsc-flags": ["-open RescriptCore"]
+  "suffix": ".res.js"
 }
-
