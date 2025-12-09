@@ -70,6 +70,18 @@ type recording = {
 
 let emp_recording = { checkpoints = []; root = None; log = "" }
 
+let value_to_string : value -> string = function
+  | Const Unit -> "()"
+  | Const (Bool b) -> Bool.to_string b
+  | Const (Int i) -> Int.to_string i
+  | Const (String s) -> Printf.sprintf "\"%s\"" (String.escaped s)
+  | Addr _ -> "{addr}"
+  | Comp _ -> "{comp}"
+  | Clos _ -> "{clos}"
+  | Set_clos _ -> "{set_clos}"
+  | List_spec _ -> "{list_spec}"
+  | Comp_spec _ -> "{comp_spec}"
+
 let leaf : const -> stree = function
   | Unit -> { base_tree with name = "()" }
   | Bool b -> { base_tree with name = Bool.to_string b }
@@ -99,12 +111,12 @@ let stree (t : Concrete_domains.tree) : stree =
           |> List.map ~f:(fun (lbl, (v, q)) ->
                  {
                    label = lbl;
-                   value = Sexp.to_string (sexp_of_value v);
+                   value = value_to_string v;
                    queue_size = Job_q.size q;
                  })
         in
         let dec_info = { chk = dec.chk; eff = dec.eff } in
-        let arg_str = Sexp.to_string (sexp_of_value arg) in
+        let arg_str = value_to_string arg in
         let child_tree, next_idx = go children idx in
         ( {
             base_tree with
