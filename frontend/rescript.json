@@ -1,6 +1,5 @@
 {
   "name": "visualizer",
-  "version": "0.1.0",
   "sources": [{ "dir": "shared/react-trace", "subdirs": true }],
   "package-specs": [
     {

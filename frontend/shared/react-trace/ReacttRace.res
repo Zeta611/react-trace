@@ -35,7 +35,7 @@ let run = (fuel, events, code) => {
     result.checkpoints->Option.forEach(Array.reverse)
     result
   } catch {
-  | Exn.Error(e) => {
+  | JsExn(e) => {
       Console.error(e)
       {error: "Runtime error"}
     }
