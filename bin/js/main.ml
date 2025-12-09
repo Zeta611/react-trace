@@ -27,13 +27,14 @@ let () =
   let open Js_of_ocaml in
   Js.export_all
     (object%js
-       method run (fuel : int) program_str =
+       method run (fuel : int) (events : int Js.js_array Js.t) program_str =
          (let ( let* ) x f = Result.bind x ~f in
+          let events = events |> Js.to_array |> Array.to_list in
           let* prog = parse_program_str program_str in
           let Interp.{ recording; _ } =
             Interp.run
               ?fuel:(if fuel < 1 then None else Some fuel)
-              ~event_q_handler:(Default_event_q.event_h ~event_q:[])
+              ~event_q_handler:(Default_event_q.event_h ~event_q:events)
               ~recorder:(module Recorder)
               prog
           in

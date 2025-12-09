@@ -58,7 +58,7 @@ function VizPaneInner() {
       return null;
     }
     const checkpoint = recording.checkpoints[currentStep - 1];
-    return checkpoint?.tree ?? null;
+    return checkpoint?.stree ?? null;
   }, [recording, currentStep]);
 
   const { nodes: rawNodes, edges: newEdges } = useMemo(

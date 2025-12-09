@@ -690,19 +690,28 @@ let rec collect : Prog.t -> Def_tab.t = function
   | Comp ({ name = comp; param; body }, p) ->
       collect p |> Def_tab.extend ~comp ~comp_def:{ param; body }
 
-let rec handlers (t : tree) : clos list =
-  match t with
-  | T_const _ -> []
-  | T_clos cl -> [ cl ]
-  | T_list ts -> List.concat_map ts ~f:handlers
-  | T_path path ->
-      let { children; _ } = perform (Lookup_view path) in
-      handlers children
+let handlers (t : tree) : (int, clos) List.Assoc.t =
+  let rec go t idx =
+    match t with
+    | T_const _ -> ([], idx)
+    | T_clos cl -> ([ (idx, cl) ], idx + 1)
+    | T_list ts ->
+        List.fold_left ts ~init:([], idx) ~f:(fun (acc, i) t ->
+            let acc', i' = go t i in
+            (acc @ acc', i'))
+    | T_path path ->
+        let { children; _ } = perform (Lookup_view path) in
+        go children idx
+  in
+  go t 0 |> fst
 
 let step_loop i (t : tree) : unit =
   Logger.step_loop t;
   (* TODO: exn? *)
-  let clos = List.nth_exn (handlers t) i in
+  let clos =
+    List.Assoc.find (handlers t) ~equal:Int.equal i
+    |> Option.value_exn ~message:"handler index out of bounds"
+  in
   (eval |> env_h ~env:(build_app_env clos (Const Unit)) |> ph_h ~ph:P_normal)
     clos.body
   |> ignore;
@@ -750,6 +759,14 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
           commit_effs root;
           step M_paint
       | M_eloop -> (
+          perform
+            (Checkpoint
+               {
+                 msg = "Event loop idle";
+                 component_info = None;
+                 checkpoint = Event_loop;
+                 loc = None;
+               });
           let i = perform Listen in
           match i with
           | None ->
@@ -757,7 +774,10 @@ let run (type recording) ?(fuel : int option) ~event_q_handler
               ()
           | Some i ->
               Logs.info (fun m -> m "StepEvent [event: %d]" i);
-              let clos = List.nth_exn (handlers root) i in
+              let clos =
+                List.Assoc.find (handlers root) ~equal:Int.equal i
+                |> Option.value_exn ~message:"handler index out of bounds"
+              in
               (eval
               |> env_h ~env:(build_app_env clos (Const Unit))
               |> ph_h ~ph:P_normal)

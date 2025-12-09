@@ -87,9 +87,9 @@ val collect : Prog.t -> Def_tab.t
 (** [collect prog] collects all component definitions from a program into a
     definition table for lookup during evaluation. *)
 
-val handlers : tree -> clos list
-(** [handlers tree] extracts all event handler closures from a tree, returning
-    them in the order they appear. *)
+val handlers : tree -> (int, clos) List.Assoc.t
+(** [handlers tree] extracts all event handler closures from a tree with their
+    stable indices, in the order they appear. *)
 
 val step_loop : int -> tree -> unit
 (** [step_loop i tree] executes the [i]-th event handler found in the tree,

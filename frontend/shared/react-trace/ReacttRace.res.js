@@ -5,13 +5,13 @@ import * as Stdlib_Option from "@rescript/runtime/lib/es6/Stdlib_Option.js";
 import * as ReactTraceBcJs from "./react-trace.bc.js";
 import * as Primitive_exceptions from "@rescript/runtime/lib/es6/Primitive_exceptions.js";
 
-function _run(prim0, prim1) {
-  return ReactTraceBcJs.run(prim0, prim1);
+function _run(prim0, prim1, prim2) {
+  return ReactTraceBcJs.run(prim0, prim1, prim2);
 }
 
-function run(fuel, value) {
+function run(fuel, events, code) {
   try {
-    let result = ReactTraceBcJs.run(fuel, value);
+    let result = ReactTraceBcJs.run(fuel, events, code);
     Stdlib_Option.forEach(result.checkpoints, prim => {
       prim.reverse();
     });

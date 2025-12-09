@@ -22,6 +22,7 @@ export type Tree = {
   eff_q_size?: number;
   dec?: DecisionInfo;
   arg?: string;
+  handler?: number;
 };
 
 export type SourceLoc = {
@@ -33,7 +34,7 @@ export type SourceLoc = {
 
 export type Entry = {
   msg: string;
-  tree: Tree;
+  stree: Tree;
   source_loc?: SourceLoc;
 };
 
@@ -75,26 +76,27 @@ let D _ =
 D ()
 `.trim();
 
-const fuel = 0; // 0 means unlimited fuel
-
-function runCode(code: string): Recording {
-  return run(fuel, code) as Recording;
+function runCode(fuel: number, events: number[], code: string): Recording {
+  return run(fuel, events, code) as Recording;
 }
 
+const fuel = 0; // 0 means unlimited fuel
+const initialEvents: number[] = [];
 // Run once for initial state
-const initialRecording = runCode(sampleCode);
+const initialRecording = runCode(fuel, initialEvents, sampleCode);
 const initialSteps = initialRecording.checkpoints?.length ?? 0;
 
 const replaceEmojis = (s: string) =>
   s
     .replace(":event:", "⚡")
+    .replace(":eloop:", "🎬")
     .replace(":retry:", "🔁")
     .replace(":check:", "🏗️")
     .replace(":finish:", "✅")
     .replace(":cancel:", "⏩")
     .replace(":effects:", "⚙️")
     .replace(":hook:", "🪝")
-    .replace(":default:", "🔄");
+    .replace(":default:", "💡");
 
 export type AppState = ExtractState<typeof useAppState>;
 
@@ -103,22 +105,20 @@ export const useAppState = createSelectors(
     combine(
       {
         code: sampleCode,
+        events: initialEvents,
         recording: initialRecording,
         currentStep: initialSteps,
+        steps: initialRecording.checkpoints?.length ?? 0,
       },
       (set, get) => ({
         // Derived state getters
-        getSteps: () => {
-          const { recording } = get();
-          return recording.checkpoints?.length ?? 0;
-        },
         getTreeData: () => {
           const { recording, currentStep } = get();
           if (currentStep === 0 || !recording.checkpoints) {
             return null;
           }
           const checkpoint = recording.checkpoints[currentStep - 1];
-          return checkpoint?.tree ?? null;
+          return checkpoint?.stree ?? null;
         },
         getReport: () => {
           const { recording, currentStep } = get();
@@ -144,9 +144,9 @@ export const useAppState = createSelectors(
 
         // Actions
         setCode: (code: string) => {
-          const recording = runCode(code);
+          const recording = runCode(fuel, [], code);
           const steps = recording.checkpoints?.length ?? 0;
-          set({ code, recording, currentStep: steps });
+          set({ code, recording, currentStep: steps, steps, events: [] });
         },
         setCurrentStep: (step: number | ((prev: number) => number)) => {
           set((prev) => ({
@@ -154,6 +154,13 @@ export const useAppState = createSelectors(
             currentStep:
               typeof step === "function" ? step(prev.currentStep) : step,
           }));
+        },
+        triggerEvent: (handlerIdx: number) => {
+          const { code, events } = get();
+          const nextEvents = [...events, handlerIdx];
+          const recording = runCode(fuel, nextEvents, code);
+          const steps = recording.checkpoints?.length ?? 0;
+          set({ recording, steps, events: nextEvents });
         },
       })
     )

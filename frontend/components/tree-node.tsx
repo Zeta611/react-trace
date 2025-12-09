@@ -1,8 +1,10 @@
 import { Handle, Position, NodeProps } from "@xyflow/react";
 import type { TreeNode } from "@/shared/layout/types";
 import { cn } from "@/shared/utils";
+import { useAppState } from "@/store/use-app-state";
 
 export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
+  const triggerEvent = useAppState.use.triggerEvent();
   // Only component nodes have dec set (decision info)
   const isComponentNode = data.dec != null;
   const hasState = Array.isArray(data.stStore) && data.stStore.length > 0;
@@ -22,7 +24,7 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
         <Handle type="target" position={Position.Top} className="invisible" />
 
         <div
-          className="absolute inset-0 border-[1.5px] border-border bg-card"
+          className="absolute inset-0 border-[1.5px] border-border bg-card pointer-events-none"
           style={{ boxShadow: "3px 3px 0 0 var(--border)" }}
         />
 
@@ -31,6 +33,21 @@ export default function TreeNodeComponent({ data }: NodeProps<TreeNode>) {
             {data.label}
           </span>
         </div>
+
+        {data.handler !== undefined && (
+          <button
+            type="button"
+            className="relative mt-2 px-2 py-1 text-[10px] font-semibold border border-border bg-yellow-300 text-foreground shadow-sm disabled:cursor-not-allowed"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (data.handler !== undefined) {
+                triggerEvent(data.handler);
+              }
+            }}
+          >
+            handler
+          </button>
+        )}
 
         {data.expandable && (
           <span

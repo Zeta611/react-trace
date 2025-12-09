@@ -3,14 +3,15 @@ type state_entry = { label : string; value : string; queue_size : int }
 
 type decision_info = { chk : bool; eff : bool } [@@deriving yojson_of]
 
-type tree = {
+type stree = {
   path : string;
   name : string;
-  children : tree list;
+  children : stree list;
   st_store : state_entry list option;
   eff_q_size : int option;
   dec : decision_info option;
   arg : string option;
+  handler : int option;
 }
 [@@deriving yojson_of]
 
@@ -22,7 +23,7 @@ type source_loc = {
 }
 [@@deriving yojson_of]
 
-type view = { msg : string; tree : tree; source_loc : source_loc option }
+type view = { msg : string; stree : stree; source_loc : source_loc option }
 [@@deriving yojson_of]
 
 type recording = {

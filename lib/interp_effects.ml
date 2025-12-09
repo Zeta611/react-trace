@@ -68,6 +68,7 @@ type checkpoint =
   | Render_finish of Path.t
   | Render_cancel of Path.t
   | Effects_finish of Path.t
+  | Event_loop
   | Event of int
   | Hook_eval of hook_kind
 

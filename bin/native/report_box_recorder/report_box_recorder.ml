@@ -149,6 +149,10 @@ let event_h (type a b) (f : a -> b) (x : a) :
                   | None -> Printf.sprintf "🪝 %s" hook
                 in
                 B.(vlist [ text_with_style Style.bold header; text msg ])
+            | Event_loop, _ ->
+                B.(
+                  vlist
+                    [ text_with_style Style.bold "⏳ Event loop idle"; text msg ])
             | _, None -> B.text msg
           in
 

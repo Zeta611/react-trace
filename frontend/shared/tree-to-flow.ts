@@ -13,8 +13,10 @@ export function treeToFlow(tree: Tree | null): {
   const nodes: TreeNode[] = [];
   const edges: Edge[] = [];
 
-  function traverse(tree: Tree, parentId: string | null) {
-    const nodeId = parentId ? `${parentId}-${tree.path}` : tree.path || "root";
+  function traverse(tree: Tree, parentId: string | null, index?: number) {
+    const path = tree.path ?? "";
+    const sibling = index !== null ? `-${index}` : "";
+    const nodeId = parentId ? `${parentId}-${path}${sibling}` : path || "root";
     const hasChildren = tree.children && tree.children.length > 0;
 
     nodes.push({
@@ -29,6 +31,7 @@ export function treeToFlow(tree: Tree | null): {
         effQSize: tree.eff_q_size,
         dec: tree.dec,
         arg: tree.arg,
+        handler: tree.handler,
       },
       position: { x: 0, y: 0 },
     });
@@ -42,8 +45,8 @@ export function treeToFlow(tree: Tree | null): {
       });
     }
 
-    tree.children.forEach((child) => {
-      traverse(child, nodeId);
+    tree.children.forEach((child, idx) => {
+      traverse(child, nodeId, idx);
     });
   }
 

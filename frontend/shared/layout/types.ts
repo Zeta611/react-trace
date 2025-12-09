@@ -10,6 +10,7 @@ export type TreeNodeData = {
   effQSize?: number;
   dec?: DecisionInfo;
   arg?: string;
+  handler?: number;
 };
 
 export type TreeNode = Node<TreeNodeData, "treeNode">;

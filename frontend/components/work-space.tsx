@@ -16,10 +16,8 @@ import { useLongPress } from "@/hooks/use-long-press";
 
 export default function WorkSpace() {
   const currentStep = useAppState.use.currentStep();
-  const getSteps = useAppState.use.getSteps();
   const setCurrentStep = useAppState.use.setCurrentStep();
-
-  const steps = getSteps();
+  const steps = useAppState.use.steps();
 
   const prevStep = () => {
     setCurrentStep((prev) => Math.max(prev - 1, 0));
