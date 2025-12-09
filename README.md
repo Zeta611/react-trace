@@ -2,6 +2,8 @@
 
 React-tRace is a React Hooks reference interpreter based on a formal semantics. It interprets React-like components, tracking render cycles, state updates, and effect executions to detect inefficient re-renders at runtime.
 
+<p align="center"><img height="559" alt="Screenshot of React-tRace Visualizer" src="https://github.com/user-attachments/assets/49ea5ec1-e308-429a-997d-36d14b7423f6" /></p>
+
 ---
 
 [![Builds, tests & co](https://github.com/Zeta611/react-trace/actions/workflows/ci.yml/badge.svg)](https://github.com/Zeta611/react-trace/actions/workflows/ci.yml)
