@@ -62,18 +62,14 @@ const createSelectors = <S extends UseBoundStore<StoreApi<object>>>(
 };
 
 const sampleCode = `
-let C x =
+let Demo x =
   let (s, setS) = useState x in
-  if s = 42 then
-    setS (fun s -> s + 1);
-  s
-;;
-let D _ =
-  let (s, setS) = useState true in
-  useEffect (setS (fun _ -> false));
-  [C 42, if s then 1 else 0]
-;;
-D ()
+  let f = fun s -> s + 1 in
+  if s = 0 then setS f;
+  useEffect (if s = 1 then setS f);
+  if s <= 1 then s else
+    [s, button (fun _ -> setS f)];;
+Demo 0
 `.trim();
 
 function runCode(fuel: number, events: number[], code: string): Recording {
