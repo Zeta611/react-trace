@@ -67,7 +67,8 @@ let mem_h (type a b) (f : a -> b) (x : a) : mem:Memory.t -> b * Memory.t =
         Logger.mem mem (`Update_addr (addr, v));
         continue k () ~mem:(Memory.update mem ~addr ~obj:v)
 
-let view_h (type a b) (f : a -> b) (x : a) : view:view -> b * view =
+let view_h (type a b) ?(path : Path.t option) (f : a -> b) (x : a) :
+    view:view -> b * view =
   match f x with
   | v ->
       fun ~view ->
@@ -80,6 +81,12 @@ let view_h (type a b) (f : a -> b) (x : a) : view:view -> b * view =
   | effect View_update_st (label, vq), k ->
       fun ~view ->
         Logger.view view (`View_update_st (label, vq));
+        (* NOTE: This is mainly for instrumentation, not in the core semantics.
+           Sync to Tree_mem if path is available, so checkpoints see updated
+           state *)
+        (match path with
+        | Some p -> perform (Tree_update_st (p, label, vq))
+        | None -> ());
         continue k ()
           ~view:
             {
@@ -93,10 +100,20 @@ let view_h (type a b) (f : a -> b) (x : a) : view:view -> b * view =
   | effect View_set_dec dec, k ->
       fun ~view ->
         Logger.view view (`View_set_dec dec);
+        (* Sync to Tree_mem if path is available, so checkpoints see updated
+           dec *)
+        (match path with
+        | Some p -> perform (Tree_set_dec (p, dec))
+        | None -> ());
         continue k () ~view:{ view with dec }
   | effect View_add_dec dec, k ->
       fun ~view ->
         Logger.view view (`View_add_dec dec);
+        (* Sync to Tree_mem if path is available, so checkpoints see updated
+           dec *)
+        (match path with
+        | Some p -> perform (Tree_add_dec (p, dec))
+        | None -> ());
         continue k () ~view:{ view with dec = Decision.(view.dec + dec) }
   | effect View_enq_eff clos, k ->
       fun ~view ->
@@ -491,6 +508,9 @@ let rec init (vs : view_spec) : tree =
           children = T_const Unit;
         }
       in
+      (* NOTE: This is mainly for instrumentation, not in the core semantics.
+         Publish view early so Lookup_view works during Mounting checkpoint *)
+      perform (Update_view (path, view));
       let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
       let env = Env.extend Env.empty ~id:param ~value:arg in
       perform
@@ -502,7 +522,8 @@ let rec init (vs : view_spec) : tree =
              loc = None;
            });
       let vs, view =
-        (eval_mult |> env_h ~env |> view_h ~view |> ph_h ~ph:(P_init path)) body
+        (eval_mult |> env_h ~env |> view_h ~path ~view |> ph_h ~ph:(P_init path))
+          body
       in
       let vs = vs_of_value_exn vs in
       perform (Update_view (path, view));
@@ -553,7 +574,7 @@ let rec reconcile (old_tree : tree) (vs : view_spec) : tree =
         let env = Env.extend Env.empty ~id:param ~value:arg in
         let vs, view =
           (eval_mult |> env_h ~env
-          |> view_h ~view:{ view with comp_spec = { comp; arg } }
+          |> view_h ~path ~view:{ view with comp_spec = { comp; arg } }
           |> ph_h ~ph:(P_succ path))
             body
         in
@@ -609,7 +630,8 @@ let rec check (t : tree) : bool =
         let ({ param; body } : comp_def) = perform (Lookup_comp comp) in
         let env = Env.extend Env.empty ~id:param ~value:arg in
         let vs, view =
-          (eval_mult |> env_h ~env |> view_h ~view |> ph_h ~ph:(P_succ path))
+          (eval_mult |> env_h ~env |> view_h ~path ~view
+         |> ph_h ~ph:(P_succ path))
             body
         in
         let vs = vs_of_value_exn vs in

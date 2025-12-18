@@ -14,3 +14,9 @@ export type TreeNodeData = {
 };
 
 export type TreeNode = Node<TreeNodeData, "treeNode">;
+
+export type MountingGroupData = {
+  label: string;
+};
+
+export type MountingGroupNode = Node<MountingGroupData, "mountingGroup">;

@@ -30,9 +30,11 @@ val mem_h : ('a -> 'b) -> 'a -> mem:Memory.t -> 'b * Memory.t
 (** [mem_h f x ~mem] handles memory effects for object allocation and access.
     Returns both the result and the updated memory state. *)
 
-val view_h : ('a -> 'b) -> 'a -> view:view -> 'b * view
-(** [view_h f x ~view] handles view-related effects, managing component state,
-    decisions, and effect queues. Returns both the result and updated view. *)
+val view_h : ?path:Path.t -> ('a -> 'b) -> 'a -> view:view -> 'b * view
+(** [view_h ?path f x ~view] handles view-related effects, managing component
+    state, decisions, and effect queues. When [path] is provided for instrumentation,
+    state updates are also synced to Tree_mem so checkpoints can observe them.
+    Returns both the result and updated view. *)
 
 val treemem_h : ('a -> 'b) -> 'a -> treemem:Tree_mem.t -> 'b * Tree_mem.t
 (** [treemem_h f x ~treemem] handles tree memory effects, managing the global

@@ -35,6 +35,7 @@ export type SourceLoc = {
 export type Entry = {
   msg: string;
   stree: Tree;
+  mounting_forest?: Tree[];
   source_loc?: SourceLoc;
 };
 
@@ -115,6 +116,14 @@ export const useAppState = createSelectors(
           }
           const checkpoint = recording.checkpoints[currentStep - 1];
           return checkpoint?.stree ?? null;
+        },
+        getMountingForest: () => {
+          const { recording, currentStep } = get();
+          if (currentStep === 0 || !recording.checkpoints) {
+            return null;
+          }
+          const checkpoint = recording.checkpoints[currentStep - 1];
+          return checkpoint?.mounting_forest ?? null;
         },
         getReport: () => {
           const { recording, currentStep } = get();

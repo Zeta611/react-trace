@@ -57,6 +57,7 @@ let base_tree =
 type view = {
   msg : string;
   stree : stree;
+  mounting_forest : stree list option; [@yojson.option]
   source_loc : source_loc option; [@yojson.option]
 }
 [@@deriving yojson_of]
@@ -64,11 +65,13 @@ type view = {
 type recording = {
   checkpoints : view list;
   root : (Concrete_domains.tree[@yojson.opaque]) option; [@yojson.option]
+  mounting_paths : (Path.t list[@yojson.opaque]);
   log : string;
 }
 [@@deriving yojson_of]
 
-let emp_recording = { checkpoints = []; root = None; log = "" }
+let emp_recording =
+  { checkpoints = []; root = None; mounting_paths = []; log = "" }
 
 let value_to_string : value -> string = function
   | Const Unit -> "()"
@@ -183,6 +186,18 @@ let event_h (type a b) (f : a -> b) (x : a) :
         continue k () ~recording:{ recording with root = Some t }
   | effect Checkpoint { msg; component_info; checkpoint; loc }, k ->
       fun ~recording ->
+        (* For "Mounting": add path BEFORE building forest (so it shows)
+           For "Mounted": keep path for this checkpoint, remove AFTER (so it
+           still shows) *)
+        let mounting_paths =
+          match (checkpoint, msg) with
+          | Render_check path, "Mounting" ->
+              (* Add path to mounting set for this checkpoint *)
+              if List.mem recording.mounting_paths path ~equal:Path.equal then
+                recording.mounting_paths
+              else path :: recording.mounting_paths
+          | _ -> recording.mounting_paths
+        in
         (* Format message based on checkpoint type *)
         let formatted_msg =
           match (checkpoint, component_info) with
@@ -212,13 +227,37 @@ let event_h (type a b) (f : a -> b) (x : a) :
               Printf.sprintf ":default: %s" msg
         in
         let root = Option.value ~default:(T_const Unit) recording.root in
-        let stree = stree root in
+        let root_stree = stree root in
+        (* Build mounting forest---includes path for both Mounting and
+           Mounted *)
+        let mounting_forest =
+          if List.is_empty mounting_paths then None
+          else
+            Some
+              (List.map mounting_paths ~f:(fun path ->
+                   stree (T_path path)))
+        in
+        (* Now update paths for NEXT checkpoint: remove on "Mounted" *)
+        let mounting_paths =
+          match (checkpoint, msg) with
+          | Render_finish path, "Mounted" ->
+              (* Remove path from mounting set for next checkpoint *)
+              List.filter mounting_paths ~f:(fun p ->
+                  not (Path.equal p path))
+          | _ -> mounting_paths
+        in
         let source_loc = Option.map loc ~f:source_loc_of_location in
         let recording =
           {
             recording with
+            mounting_paths;
             checkpoints =
-              { msg = formatted_msg; stree; source_loc }
+              {
+                msg = formatted_msg;
+                stree = root_stree;
+                mounting_forest;
+                source_loc;
+              }
               :: recording.checkpoints;
           }
         in

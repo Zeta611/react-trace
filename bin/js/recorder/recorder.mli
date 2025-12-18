@@ -23,12 +23,18 @@ type source_loc = {
 }
 [@@deriving yojson_of]
 
-type view = { msg : string; stree : stree; source_loc : source_loc option }
+type view = {
+  msg : string;
+  stree : stree;
+  mounting_forest : stree list option;
+  source_loc : source_loc option;
+}
 [@@deriving yojson_of]
 
 type recording = {
   checkpoints : view list;
   root : Lib_domains.Concrete_domains.tree option;
+  mounting_paths : Lib_domains.Concrete_domains.path list;
   log : string;
 }
 [@@deriving yojson_of]
