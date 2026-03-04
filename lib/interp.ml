@@ -196,7 +196,7 @@ let io_h (type a b) (f : a -> b) (x : a) : output:string -> b * string =
       fun ~output ->
         Logger.io output `Ret;
         (v, output)
-  | effect Print s, k ->
+  | effect Print (s, _loc), k ->
       fun ~output ->
         Logger.io output (`Print s);
         continue k () ~output:(output ^ s ^ "\n")
@@ -305,6 +305,9 @@ let rec eval : type a. a Expr.t -> value =
       perform (In_env env) eval body
   | Stt { label; stt; set; init; body } -> (
       let path = perform Rd_pt in
+      let hook_loc =
+        { expr.loc with loc_end = init.loc.loc_end }
+      in
       match perform Rd_ph with
       | P_init _ ->
           Logs.info (fun m -> m "SttBind");
@@ -314,7 +317,7 @@ let rec eval : type a. a Expr.t -> value =
                  msg = "Initializing state";
                  component_info = None;
                  checkpoint = Hook_eval Use_state;
-                 loc = Some expr.loc;
+                 loc = Some hook_loc;
                });
           let v = eval init in
           perform (View_update_st (label, (v, Job_q.empty)));
@@ -332,7 +335,7 @@ let rec eval : type a. a Expr.t -> value =
                  msg = "Processing state updates";
                  component_info = None;
                  checkpoint = Hook_eval Use_state;
-                 loc = Some expr.loc;
+                 loc = Some hook_loc;
                });
           let v_old, q = perform (View_lookup_st label) in
           perform (View_update_st (label, (v_old, Job_q.empty)));
@@ -443,7 +446,7 @@ let rec eval : type a. a Expr.t -> value =
       Const Unit
   | Print s ->
       Logs.info (fun m -> m "Print");
-      perform (Print (string_of_value_exn (eval s)));
+      perform (Print (string_of_value_exn (eval s), Some expr.loc));
       Const Unit
 
 let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
@@ -465,7 +468,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
          msg = Printf.sprintf "Render pass (attempt %d)" re_render;
          component_info = Some (comp_name, decision);
          checkpoint = Render_check path;
-         loc = None;
+         loc = Some expr.loc;
        });
   let v = eval expr in
   if (perform View_get_dec).chk then (
@@ -477,7 +480,7 @@ let rec eval_mult : type a. ?re_render:int -> a Expr.t -> value =
            msg = "Re-rendering due to state change";
            component_info = Some (comp_name, decision);
            checkpoint = Retry_start (re_render, path);
-           loc = None;
+           loc = Some expr.loc;
          });
     ph_h ~ph:(P_succ path) (eval_mult ~re_render) expr)
   else (

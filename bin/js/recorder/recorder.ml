@@ -262,9 +262,9 @@ let event_h (type a b) (f : a -> b) (x : a) :
           }
         in
         continue k () ~recording
-  | effect Print s, k ->
+  | effect Print (s, loc), k ->
       fun ~recording ->
-        let () = perform (Print s) in
+        let () = perform (Print (s, loc)) in
         let root = Option.value ~default:(T_const Unit) recording.root in
         let root_stree = stree root in
         let mounting_forest =
@@ -274,6 +274,7 @@ let event_h (type a b) (f : a -> b) (x : a) :
               (List.map recording.mounting_paths ~f:(fun path ->
                    stree (T_path path)))
         in
+        let source_loc = Option.map loc ~f:source_loc_of_location in
         let recording =
           {
             recording with
@@ -282,7 +283,7 @@ let event_h (type a b) (f : a -> b) (x : a) :
                 msg = Printf.sprintf ":print: %s" s;
                 stree = root_stree;
                 mounting_forest;
-                source_loc = None;
+                source_loc;
               }
               :: recording.checkpoints;
           }

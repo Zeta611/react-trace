@@ -53,7 +53,7 @@ type _ eff +=
 type _ eff += Lookup_comp : Id.t -> comp_def eff | Get_comp_env : Env.t eff
 
 (* I/O effects *)
-type _ eff += Print : string -> unit eff
+type _ eff += Print : (string * Location.t option) -> unit eff
 
 (* event queue effects *)
 type _ eff += Listen : int option eff
