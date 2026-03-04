@@ -16,6 +16,7 @@ import {
 } from "@/ui/menubar";
 import { GithubLight } from "@/ui/svgs/githubLight";
 import BackgroundMeteors from "@/ui/backgroundmeteors";
+import { examples, useAppState } from "@/store/use-app-state";
 
 export default function NavBar() {
   const mounted = useSyncExternalStore(
@@ -23,6 +24,7 @@ export default function NavBar() {
     () => true, // true on the client
     () => false // false on the server
   );
+  const setCode = useAppState.use.setCode();
 
   return (
     <div className="relative border-b-2">
@@ -54,9 +56,14 @@ export default function NavBar() {
                   <MenubarSub>
                     <MenubarSubTrigger>Examples</MenubarSubTrigger>
                     <MenubarSubContent>
-                      <MenubarItem onClick={() => console.log("Counter")}>
-                        Item
-                      </MenubarItem>
+                      {examples.map((ex) => (
+                        <MenubarItem
+                          key={ex.label}
+                          onClick={() => setCode(ex.code)}
+                        >
+                          {ex.label}
+                        </MenubarItem>
+                      ))}
                     </MenubarSubContent>
                   </MenubarSub>
                   <MenubarSeparator />

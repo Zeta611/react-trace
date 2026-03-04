@@ -62,7 +62,29 @@ const createSelectors = <S extends UseBoundStore<StoreApi<object>>>(
   return store;
 };
 
-const sampleCode = `
+export type Example = { label: string; code: string };
+
+export const examples: Example[] = [
+  {
+    label: "Counter",
+    code: `\
+let Counter x =
+  print "Counter";
+  let (s, setS) = useState x in
+  print "Return";
+  [
+    s,
+    button (fun _ ->
+      setS (fun s -> s+1);
+      setS (fun s -> print "Update"; s+1)
+    )
+  ]
+;;
+Counter 0`,
+  },
+  {
+    label: "Demo",
+    code: `\
 let Demo x =
   let (s, setS) = useState x in
   let f = fun s -> s + 1 in
@@ -70,8 +92,11 @@ let Demo x =
   useEffect (if s = 1 then setS f);
   if s <= 1 then s else
     [s, button (fun _ -> setS f)];;
-Demo 0
-`.trim();
+Demo 0`,
+  },
+];
+
+const defaultCode = examples[0].code;
 
 function runCode(fuel: number, events: number[], code: string): Recording {
   return run(fuel, events, code) as Recording;
@@ -80,7 +105,7 @@ function runCode(fuel: number, events: number[], code: string): Recording {
 const fuel = 0; // 0 means unlimited fuel
 const initialEvents: number[] = [];
 // Run once for initial state
-const initialRecording = runCode(fuel, initialEvents, sampleCode);
+const initialRecording = runCode(fuel, initialEvents, defaultCode);
 const initialSteps = initialRecording.checkpoints?.length ?? 0;
 
 const replaceEmojis = (s: string) =>
@@ -102,7 +127,7 @@ export const useAppState = createSelectors(
   create(
     combine(
       {
-        code: sampleCode,
+        code: defaultCode,
         events: initialEvents,
         recording: initialRecording,
         currentStep: initialSteps,
