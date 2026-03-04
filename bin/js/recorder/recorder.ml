@@ -262,3 +262,29 @@ let event_h (type a b) (f : a -> b) (x : a) :
           }
         in
         continue k () ~recording
+  | effect Print s, k ->
+      fun ~recording ->
+        let () = perform (Print s) in
+        let root = Option.value ~default:(T_const Unit) recording.root in
+        let root_stree = stree root in
+        let mounting_forest =
+          if List.is_empty recording.mounting_paths then None
+          else
+            Some
+              (List.map recording.mounting_paths ~f:(fun path ->
+                   stree (T_path path)))
+        in
+        let recording =
+          {
+            recording with
+            checkpoints =
+              {
+                msg = Printf.sprintf ":print: %s" s;
+                stree = root_stree;
+                mounting_forest;
+                source_loc = None;
+              }
+              :: recording.checkpoints;
+          }
+        in
+        continue k () ~recording

@@ -93,7 +93,8 @@ const replaceEmojis = (s: string) =>
     .replace(":cancel:", "⏩")
     .replace(":effects:", "⚙️")
     .replace(":hook:", "🪝")
-    .replace(":default:", "💡");
+    .replace(":default:", "💡")
+    .replace(":print:", "🔊");
 
 export type AppState = ExtractState<typeof useAppState>;
 
