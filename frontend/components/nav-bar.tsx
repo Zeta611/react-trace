@@ -25,6 +25,21 @@ export default function NavBar() {
     () => false // false on the server
   );
   const setCode = useAppState.use.setCode();
+  const code = useAppState.use.code();
+  const programTitle = useAppState.use.programTitle();
+
+  const handleSave = () => {
+    const safeName =
+      programTitle.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "") ||
+      "program";
+    const blob = new Blob([code], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${safeName}.ml`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="relative border-b-2">
@@ -59,7 +74,7 @@ export default function NavBar() {
                       {examples.map((ex) => (
                         <MenubarItem
                           key={ex.label}
-                          onClick={() => setCode(ex.code)}
+                          onClick={() => setCode(ex.code, ex.label)}
                         >
                           {ex.label}
                         </MenubarItem>
@@ -67,7 +82,7 @@ export default function NavBar() {
                     </MenubarSubContent>
                   </MenubarSub>
                   <MenubarSeparator />
-                  <MenubarItem>Save</MenubarItem>
+                  <MenubarItem onClick={handleSave}>Save</MenubarItem>
                 </MenubarContent>
               </MenubarMenu>
               <MenubarMenu>

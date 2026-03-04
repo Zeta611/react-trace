@@ -66,7 +66,7 @@ export type Example = { label: string; code: string };
 
 export const examples: Example[] = [
   {
-    label: "Counter",
+    label: "PLATEAU'26",
     code: `\
 let Counter x =
   print "Counter";
@@ -80,10 +80,10 @@ let Counter x =
     )
   ]
 ;;
-Counter 0`,
+Counter 42`,
   },
   {
-    label: "Demo",
+    label: "OOPSLA'25",
     code: `\
 let Demo x =
   let (s, setS) = useState x in
@@ -97,6 +97,7 @@ Demo 0`,
 ];
 
 const defaultCode = examples[0].code;
+const defaultProgramTitle = examples[0].label;
 
 function runCode(fuel: number, events: number[], code: string): Recording {
   return run(fuel, events, code) as Recording;
@@ -128,6 +129,7 @@ export const useAppState = createSelectors(
     combine(
       {
         code: defaultCode,
+        programTitle: defaultProgramTitle,
         events: initialEvents,
         recording: initialRecording,
         currentStep: initialSteps,
@@ -174,10 +176,17 @@ export const useAppState = createSelectors(
         },
 
         // Actions
-        setCode: (code: string) => {
+        setCode: (code: string, programTitle?: string) => {
           const recording = runCode(fuel, [], code);
           const steps = recording.checkpoints?.length ?? 0;
-          set({ code, recording, currentStep: steps, steps, events: [] });
+          set({
+            code,
+            ...(programTitle !== undefined && { programTitle }),
+            recording,
+            currentStep: steps,
+            steps,
+            events: [],
+          });
         },
         setCurrentStep: (step: number | ((prev: number) => number)) => {
           set((prev) => ({
