@@ -71,9 +71,8 @@ export const examples: Example[] = [
 let Counter x =
   print "Counter";
   let (s, setS) = useState x in
-  useEffect (print "Effect 1");
+  useEffect (print "Effect");
   print "Return";
-  useEffect (print "Effect 2");
   [
     s,
     button (fun _ ->
